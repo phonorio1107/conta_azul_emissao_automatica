@@ -1,0 +1,6 @@
+node_modules/
+.env
+dados/*
+!dados/.gitkeep
+entrada/*
+!entrada/.gitkeep

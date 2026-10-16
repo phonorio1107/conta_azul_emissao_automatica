@@ -1,0 +1,6 @@
+unidade;numero_os;data_fechamento;cliente_nome;cliente_documento;placa;tipo;codigo_hts;descricao;quantidade;valor_unitario;desconto
+vinhedo;1001;15/10/2026;Cliente Exemplo Um;123.456.789-09;ABC1D23;produto;OLEO-5W30;Óleo 5W30 sintético (litro);4;62,90;0
+vinhedo;1001;15/10/2026;Cliente Exemplo Um;123.456.789-09;ABC1D23;produto;FILTRO-OLEO;Filtro de óleo;1;45,00;5,00
+vinhedo;1001;15/10/2026;Cliente Exemplo Um;123.456.789-09;ABC1D23;servico;MO-TROCA-OLEO;Mão de obra troca de óleo e filtro;1;80,00;0
+vinhedo;1002;15/10/2026;Cliente Exemplo Dois;11.222.333/0001-81;XYZ9E87;servico;MO-DIAGNOSTICO;Diagnóstico completo;1;250,00;0
+barueri;5001;16/10/2026;Cliente Exemplo Três;987.654.321-00;KZN2A10;produto;VELA-IGN;Vela de ignição;4;38,50;0

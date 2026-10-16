@@ -1,0 +1,6 @@
+unidade;tipo;codigo_hts;id_conta_azul;fator_conversao;observacao
+vinhedo;produto;OLEO-5W30;00000000-0000-0000-0000-000000000001;1;Trocar pelos ids reais (veja npm run exportar-catalogo)
+vinhedo;produto;FILTRO-OLEO;00000000-0000-0000-0000-000000000002;1;
+vinhedo;servico;MO-TROCA-OLEO;00000000-0000-0000-0000-000000000003;1;
+vinhedo;servico;MO-DIAGNOSTICO;00000000-0000-0000-0000-000000000004;1;
+barueri;produto;VELA-IGN;00000000-0000-0000-0000-000000000005;1;No HTS sai por unidade, igual ao Conta Azul
