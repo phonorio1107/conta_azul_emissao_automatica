@@ -9,6 +9,7 @@ export const TOKEN = 'https://api-v2.contaazul.com/oauth/token'; // CONFIRMADO (
 export const API = 'https://api-v2.contaazul.com';
 
 export const CAMINHOS = {
+  categorias: '/v1/categorias', // CONFIRMADO (exemplo do próprio portal)
   buscarVendas: '/v1/venda/busca', // CONFIRMADO
   criarVenda: '/v1/venda', // CONFIRMADO ("Criar uma nova venda")
   pessoas: '/v1/pessoas', // A CONFIRMAR
