@@ -12,8 +12,8 @@ Emissão automatizada de NFs de produto e serviço no ERP Conta Azul, a partir d
 | Comando | O que faz |
 |---|---|
 | `npm run painel` | Abre o painel em http://localhost:3000 |
-| `npm run autorizar -- vinhedo` | Conecta a unidade ao Conta Azul (alternativa ao painel) |
-| `npm run testar-conexao -- vinhedo` | Teste só de leitura da API |
+| `npm run autorizar -- vinhedo` | Conecta a unidade ao Conta Azul (`--refresh-token` no app de desenvolvimento) |
+| `npm run testar-conexao -- vinhedo` | Mostra qual empresa está conectada (só leitura) |
 | `npm run exportar-catalogo -- vinhedo` | Baixa produtos e serviços para montar o mapeamento |
 | `npm test` | Testes automáticos (não acessam o Conta Azul) |
 
@@ -38,6 +38,7 @@ exemplos/              modelos de CSV
 - [x] OAuth 2.0 por unidade, com renovação automática do token
 - [x] Importação de OS por CSV, validação e painel com aprovação manual
 - [x] Modo simulação (`ENVIO_REAL=false`, padrão)
-- [ ] Confirmar no OpenAPI do portal os campos de `POST /v1/venda` e os caminhos marcados "A CONFIRMAR" em `src/contaazul/endpoints.js`
+- [x] Campos e endereços conferidos com o OpenAPI oficial (`docs/openapi/`)
+- [ ] Primeiro teste real com a conta de teste do app de desenvolvimento
 - [ ] Leitura direta do HTS (depende do Lucas)
 - [ ] Marcar "NF emitida" automaticamente, consultando as notas pela venda na API

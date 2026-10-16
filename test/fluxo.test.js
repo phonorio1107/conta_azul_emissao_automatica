@@ -6,6 +6,8 @@ import { lerOsDeCsv } from '../src/hts/importarCsv.js';
 import { carregarMapeamento } from '../src/mapeamento.js';
 import { validarOs, totalOs, tipoOs } from '../src/validacao.js';
 import { montarVenda } from '../src/contaazul/montarVenda.js';
+import { extrairLista } from '../src/contaazul/cliente.js';
+import { normalizarFormaPagamento } from '../src/pagamento.js';
 
 const csv = fs.readFileSync(new URL('../exemplos/os-exemplo.csv', import.meta.url), 'utf8');
 const mapaCsv = fs.readFileSync(new URL('../exemplos/mapeamento-exemplo.csv', import.meta.url), 'utf8');
@@ -56,17 +58,50 @@ test('aponta item sem mapeamento, CPF inválido e unidade desconhecida', () => {
   assert.ok(problemas.some((p) => p.includes('sem correspondente no Conta Azul')));
 });
 
-test('monta a venda com ids do Conta Azul e mantém o total com conversão de unidade', () => {
+test('monta a venda no formato oficial, com conversão de unidade', () => {
   const mapa = carregarMapeamento(
     mapaCsv.replace('VELA-IGN;00000000-0000-0000-0000-000000000005;1', 'VELA-IGN;00000000-0000-0000-0000-000000000005;0,25'),
   );
   const os = lerOsDeCsv(csv).find((o) => o.chave === 'barueri:5001');
-  const venda = montarVenda(os, { idCliente: 'cliente-uuid', mapeamento: mapa });
+  const venda = montarVenda(os, { idCliente: 'cliente-uuid', numero: 77, mapeamento: mapa, situacao: 'APROVADO', formaPagamento: '' });
   assert.equal(venda.id_cliente, 'cliente-uuid');
+  assert.equal(venda.numero, 77);
+  assert.equal(venda.situacao, 'APROVADO');
   assert.equal(venda.data_venda, '2026-10-16');
   assert.match(venda.observacoes, /OS 5001/);
   const [item] = venda.itens;
   assert.equal(item.id, '00000000-0000-0000-0000-000000000005');
   assert.equal(item.quantidade, 1);
   assert.equal(item.valor, 154);
+  assert.equal(venda.composicao_de_valor, undefined);
+  assert.equal(venda.condicao_pagamento.tipo_pagamento, undefined);
+  assert.deepEqual(venda.condicao_pagamento.parcelas, [{ data_vencimento: '2026-10-16', valor: 154 }]);
+});
+
+test('soma os descontos dos itens no desconto da venda e a parcela fecha com o total', () => {
+  const os = lerOsDeCsv(csv).find((o) => o.chave === 'vinhedo:1001');
+  const venda = montarVenda(os, {
+    idCliente: 'c', numero: 1, mapeamento: carregarMapeamento(mapaCsv), situacao: 'APROVADO', formaPagamento: 'PIX_PAGAMENTO_INSTANTANEO',
+  });
+  assert.deepEqual(venda.composicao_de_valor, { desconto: { tipo: 'VALOR', valor: 5 } });
+  assert.equal(venda.condicao_pagamento.tipo_pagamento, 'PIX_PAGAMENTO_INSTANTANEO');
+  assert.equal(venda.condicao_pagamento.opcao_condicao_pagamento, 'À vista');
+  const bruto = venda.itens.reduce((s, i) => s + i.quantidade * i.valor, 0);
+  assert.equal(Math.round((bruto - 5) * 100) / 100, venda.condicao_pagamento.parcelas[0].valor);
+});
+
+test('formas de pagamento por apelido', () => {
+  assert.equal(normalizarFormaPagamento('Pix'), 'PIX_PAGAMENTO_INSTANTANEO');
+  assert.equal(normalizarFormaPagamento('Cartão de Crédito'), 'CARTAO_CREDITO');
+  assert.equal(normalizarFormaPagamento('dinheiro'), 'DINHEIRO');
+  assert.equal(normalizarFormaPagamento('BOLETO_BANCARIO'), 'BOLETO_BANCARIO');
+  assert.equal(normalizarFormaPagamento(''), '');
+  assert.equal(normalizarFormaPagamento('fiado'), null);
+});
+
+test('lê as listas nos formatos diferentes de cada API', () => {
+  assert.deepEqual(extrairLista({ items: [1, 2] }), [1, 2]);
+  assert.deepEqual(extrairLista({ itens: [3] }), [3]);
+  assert.deepEqual(extrairLista([{ itens: [4, 5], paginacao: {} }]), [4, 5]);
+  assert.deepEqual(extrairLista([6]), [6]);
 });

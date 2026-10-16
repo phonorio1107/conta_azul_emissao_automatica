@@ -11,134 +11,158 @@ HTS (OS fechada) ──CSV──> Painel (confere e você aprova) ──API─�
 O sistema **não emite a NF sozinho**. Ele cria a venda completa no Conta Azul. Você abre a venda, confere e clica em emitir.
 CFOP, natureza de operação e tributação continuam vindo do cadastro de cada produto ou serviço no Conta Azul, como hoje.
 
+São duas fases:
+
+| Fase | App do portal | Conta usada | Para quê |
+|---|---|---|---|
+| **1. Testes** | Desenvolvimento | Conta de **teste**, com dados fictícios | Ver tudo funcionando sem risco |
+| **2. Uso real** | Produção | Vinhedo e Barueri | O dia a dia |
+
 ---
+
+# FASE 1 – Testes com a conta de teste
 
 ## 1. Preparar o computador (uma vez só)
 
-1. Instale o **Node.js LTS** pelo site nodejs.org (avance tudo no instalador).
-2. Baixe este projeto: no GitHub, clique em **Code → Download ZIP** e descompacte numa pasta, por exemplo `C:\nf-conta-azul`.
-3. Abra o **Prompt de Comando** dentro dessa pasta (no Explorer, digite `cmd` na barra de endereço e dê Enter).
+1. Instale o **Node.js LTS** pelo site nodejs.org. Avance tudo no instalador.
+2. No GitHub, abra o repositório, troque a branch para `claude/elegant-turing-0rn2mx`, clique em **Code → Download ZIP** e descompacte, por exemplo em `C:\nf-conta-azul`.
+3. Abra a pasta no Explorer, digite `cmd` na barra de endereço e dê Enter. Abre o **Prompt de Comando** já dentro da pasta.
 4. Rode:
    ```
    npm install
    ```
 
-## 2. Configurar o aplicativo no Portal do Desenvolvedor do Conta Azul
+## 2. Criar o arquivo `.env`
 
-No aplicativo que você já criou no portal:
-
-1. Copie o **Client ID** e o **Client Secret**. O Client Secret é uma senha: não mande por WhatsApp nem cole em planilha.
-2. Em **URL de redirecionamento** (redirect URI), cadastre:
+1. Na pasta do projeto, copie o arquivo `.env.example` e renomeie a cópia para `.env`.
+2. Abra o `.env` com o Bloco de Notas e preencha só estas duas linhas, com o que você guardou do portal:
    ```
-   http://localhost:3000/oauth/retorno
+   CONTAAZUL_CLIENT_ID=...
+   CONTAAZUL_CLIENT_SECRET=...
    ```
-   Se o portal não aceitar `http://localhost`, cadastre um endereço `https` qualquer, por exemplo `https://www.hightorque.com.br`, e use o plano B do passo 4.
-3. **Baixe o OpenAPI** (arquivo `.json` ou `.yaml`) das seções **Vendas** e **Pessoas** e, se houver, **Produtos** e **Serviços**. Me envie esses arquivos ou coloque-os na pasta `docs/openapi/`. Com eles eu confirmo os nomes exatos dos campos antes de ligar o envio real. Esses arquivos não têm nada secreto.
+3. Deixe o resto como está. A URL de redirecionamento já vem como `https://contaazul.com`, que é a fixa do app de desenvolvimento.
 
-## 3. Criar o arquivo `.env`
+O `.env` fica só no seu computador e **nunca** vai para o GitHub.
 
-1. Copie o arquivo `.env.example` e renomeie a cópia para `.env`.
-2. Abra o `.env` no Bloco de Notas e preencha:
-   ```
-   CONTAAZUL_CLIENT_ID=o que você copiou
-   CONTAAZUL_CLIENT_SECRET=o que você copiou
-   CONTAAZUL_REDIRECT_URI=a mesma URL cadastrada no portal
-   ENVIO_REAL=false
-   ```
+## 3. Conectar a conta de teste
 
-O `.env` fica só no seu computador e **nunca** vai para o GitHub (já está bloqueado no `.gitignore`).
+Na fase de testes, use a unidade `vinhedo` para representar a conta de teste.
 
-## 4. Conectar Vinhedo e Barueri
+**Opção A, com o refresh token (a mais fácil):**
+```
+npm run autorizar -- vinhedo --refresh-token
+```
+Cole o **refresh_token** que o portal mostrou e dê Enter.
 
-**Plano A (pelo painel):**
-
-1. Rode `npm run painel` e abra http://localhost:3000 no navegador.
-2. Clique em **Conectar Vinhedo ao Conta Azul** e entre com o login do Conta Azul **de Vinhedo**.
-3. Faça o mesmo com **Barueri**, entrando com o login **de Barueri**.
-
-**Plano B (se a URL de redirecionamento não for localhost):**
-
+**Opção B, com o login da conta de teste:**
 ```
 npm run autorizar -- vinhedo
 ```
+1. Abra o link que aparecer e entre com o **usuário e a senha da conta de teste**.
+2. O navegador vai para `contaazul.com?code=...`.
+3. Copie o endereço inteiro da barra e cole no Prompt. **Seja rápido: o código vale só 3 minutos.**
 
-Abra o link que aparecer e autorize. O navegador vai cair em outra página (pode até dar erro, tudo bem). Copie o endereço inteiro da barra do navegador e cole no Prompt. Repita com `barueri`.
-
-> Se Vinhedo e Barueri forem a **mesma** conta no Conta Azul, me avise: aí o sistema precisa separar as vendas de outro jeito.
-
-## 5. Testar (só leitura, não cria nada)
+## 4. Testar a conexão (só leitura)
 
 ```
 npm run testar-conexao -- vinhedo
-npm run testar-conexao -- barueri
 ```
 
-Deve aparecer "Conexão OK" com algumas vendas recentes.
+Deve aparecer "Conexão OK" com o nome e o CNPJ da empresa da conta de teste.
 
-## 6. Montar o mapeamento HTS → Conta Azul
+## 5. Montar um mapeamento de teste
 
-O Conta Azul identifica cada produto e serviço por um código interno (id). O sistema precisa saber qual id corresponde a cada código do HTS.
-
-1. Baixe o catálogo de cada unidade:
+1. Baixe os produtos e serviços da conta de teste:
    ```
    npm run exportar-catalogo -- vinhedo
-   npm run exportar-catalogo -- barueri
    ```
-   Isso gera `dados/catalogo-vinhedo.csv` e `dados/catalogo-barueri.csv`.
-2. Crie `dados/mapeamento.csv` no mesmo formato de `exemplos/mapeamento-exemplo.csv`:
+   Isso gera `dados/catalogo-vinhedo.csv`. Abra no Excel.
+2. Crie `dados/mapeamento.csv` no formato de `exemplos/mapeamento-exemplo.csv`. Ligue os códigos da sua planilha de OS a alguns produtos e serviços do catálogo de teste (coluna `id_conta_azul`).
 
-   | unidade | tipo | codigo_hts | id_conta_azul | fator_conversao | observacao |
-   |---|---|---|---|---|---|
-   | vinhedo | produto | OLEO-5W30 | (id do catálogo) | 1 | |
+## 6. Rodar o painel em simulação
 
-   O `fator_conversao` indica quantas unidades do Conta Azul valem 1 unidade do HTS. Deixe `1` quando forem iguais. É a mesma ideia da vela que chega em pacote e entra como 4 unidades.
-
-Não precisa mapear tudo de uma vez: o painel avisa qual item da OS está sem correspondente. Você completa o mapeamento e clica em **Revalidar**.
-
-## 7. Trazer as OS do HTS
-
-Até o Lucas liberar algo melhor (veja `docs/PEDIDO-LUCAS.md`), as OS entram por planilha:
-
-1. Gere um CSV no formato de `exemplos/os-exemplo.csv`, com uma linha por item da OS.
+1. Monte um CSV de OS no formato de `exemplos/os-exemplo.csv` (veja o passo 9). Use o CPF/CNPJ de um cliente que exista na conta de teste.
 2. Salve na pasta `entrada/`.
-3. No painel, clique em **Importar OS da pasta "entrada"**. O arquivo lido vai para `entrada/processados/`.
+3. Rode:
+   ```
+   npm run painel
+   ```
+4. Abra **http://localhost:3000**, clique em **Importar** e depois em **Ver o que seria enviado** em cada OS.
 
-Importar o mesmo arquivo de novo não duplica nada: OS já enviadas são ignoradas, e as outras são atualizadas.
+## 7. Criar uma venda de verdade na conta de teste
 
-## 8. Período de simulação (`ENVIO_REAL=false`)
+1. No `.env`, troque `ENVIO_REAL=false` para `ENVIO_REAL=true`.
+2. Feche o painel (Ctrl+C no Prompt) e rode `npm run painel` de novo.
+3. Clique em **Aprovar e criar venda** numa OS.
+4. Entre no Conta Azul com o **login da conta de teste** e confira a venda. Experimente emitir a NF por ela.
 
-Para cada OS **Pronta para aprovar**, clique em **Ver o que seria enviado**. O painel consulta o cliente no Conta Azul (só leitura) e mostra a venda montada.
+Como é a conta de teste, pode errar à vontade.
 
-Confira valores, quantidades e itens contra a OS em papel. Os erros mais comuns aparecem aqui:
-- cliente não cadastrado no Conta Azul;
-- item sem mapeamento;
-- CPF/CNPJ faltando na OS.
+---
 
-## 9. Ligar o envio real
+# FASE 2 – Uso real (Vinhedo e Barueri)
 
-Só depois de **(a)** eu confirmar os campos com o OpenAPI (passo 2.3) e **(b)** você ficar satisfeito com as simulações:
+Só depois que a fase 1 estiver redonda.
 
-1. No `.env`, troque para `ENVIO_REAL=true` e reinicie o painel.
-2. Faça a primeira OS real de valor baixo e confira a venda no Conta Azul antes de emitir a NF.
+1. No portal, crie uma aplicação de **Produção**. Cadastre a URL de redirecionamento `http://localhost:3000/oauth/retorno`.
+2. No `.env`:
+   - troque o Client ID e o Client Secret pelos do app de produção;
+   - troque `CONTAAZUL_REDIRECT_URI=http://localhost:3000/oauth/retorno`;
+   - **volte para `ENVIO_REAL=false`**.
+3. Apague o arquivo `dados/tokens.json` (é a conexão com a conta de teste).
+4. Rode `npm run painel`, abra http://localhost:3000 e clique em **Conectar Vinhedo** (login de Vinhedo) e em **Conectar Barueri** (login de Barueri).
+5. Rode `npm run testar-conexao -- vinhedo` e `-- barueri` e confira se cada um mostra o **CNPJ certo**.
+6. Refaça o mapeamento com os catálogos reais (passo 5, para as duas unidades).
+7. Simule por alguns dias. Depois, `ENVIO_REAL=true`.
 
-## Dia a dia
+---
+
+## 8. Configurações do `.env`
+
+| Linha | O que faz |
+|---|---|
+| `ENVIO_REAL` | `false` = só simula; `true` = cria as vendas |
+| `SITUACAO_VENDA` | `APROVADO` (padrão) ou `EM_ANDAMENTO`: como a venda nasce no Conta Azul |
+| `FORMA_PAGAMENTO_PADRAO` | Usada quando a OS não traz a forma de pagamento. Ex.: `PIX_PAGAMENTO_INSTANTANEO`, `DINHEIRO`, `CARTAO_CREDITO`, `CARTAO_DEBITO`, `BOLETO_BANCARIO` |
+
+> A venda vai com pagamento **à vista**, em **uma parcela** com vencimento na data da OS. Se Vinhedo e Barueri lançam pagamento de outro jeito, combine com a Sol antes da fase 2, porque isso gera o contas a receber.
+
+## 9. Planilha de OS
+
+Uma linha por item da OS, no formato de `exemplos/os-exemplo.csv`:
+
+| Coluna | Exemplo | Observação |
+|---|---|---|
+| unidade | vinhedo / barueri | |
+| numero_os | 1001 | |
+| data_fechamento | 15/10/2026 | |
+| cliente_nome | Fulano de Tal | |
+| cliente_documento | 123.456.789-09 | CPF ou CNPJ; o cliente precisa existir no Conta Azul |
+| placa | ABC1D23 | |
+| tipo | produto / servico | |
+| codigo_hts | OLEO-5W30 | precisa estar no mapeamento |
+| descricao | Óleo 5W30 | |
+| quantidade | 4 | |
+| valor_unitario | 62,90 | |
+| desconto | 5,00 | em R$, por item; vai somado no total da venda |
+| forma_pagamento | Pix | opcional: Pix, Dinheiro, Crédito, Débito, Boleto, Transferência |
+
+## Dia a dia (depois da fase 2)
 
 1. Exportar as OS fechadas do HTS para a pasta `entrada/` e clicar em **Importar**.
 2. Resolver as OS **Com problema** (cadastro de cliente, mapeamento).
-3. Para cada OS **Pronta para aprovar**: conferir e clicar em **Aprovar e criar venda**.
+3. Em cada OS **Pronta para aprovar**, conferir e clicar em **Aprovar e criar venda**.
 4. No Conta Azul, abrir a venda e clicar em **Emitir nota fiscal**.
 5. Voltar ao painel e marcar **NF emitida**.
 
-A lista **Venda criada – emitir NF** mostra o que ainda falta emitir. Ela ajuda também na conferência quinzenal de OS sem faturar.
-
 ### Se uma OS ficar "Enviando…"
 
-Isso quer dizer que a internet ou o Conta Azul caiu no meio do envio, e não dá para saber se a venda foi criada. Procure a venda no Conta Azul (o campo de observações traz "OS nº ... (HTS)"):
-- **Se existe:** clique em **A venda existe no Conta Azul**.
-- **Se não existe:** clique em **Reabrir** e envie de novo.
+A internet ou o Conta Azul caiu no meio do envio. Procure a venda no Conta Azul (nas observações aparece "OS nº ... (HTS)"):
+- **se ela existe:** clique em **A venda existe no Conta Azul**;
+- **se não existe:** clique em **Reabrir** e envie de novo.
 
 ## Segurança
 
 - O painel só abre no próprio computador (`localhost`), porque não tem login.
 - `.env` (senhas) e `dados/` (tokens e OS) nunca vão para o GitHub.
-- Se o Client Secret vazar, gere outro no portal e atualize o `.env`.
+- Nunca mande Client Secret, tokens ou senhas em chat ou print.

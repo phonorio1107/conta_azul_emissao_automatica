@@ -5,6 +5,7 @@
 // Colunas esperadas (cabeçalho na primeira linha, separador ";" ou ","):
 // unidade;numero_os;data_fechamento;cliente_nome;cliente_documento;placa;
 // tipo;codigo_hts;descricao;quantidade;valor_unitario;desconto
+// Coluna opcional: forma_pagamento (ex.: Pix, Dinheiro, Crédito, Débito, Boleto).
 import { parse } from 'csv-parse/sync';
 import { numeroBr, dataBr, soDigitos } from '../numeros.js';
 
@@ -42,6 +43,7 @@ export function lerOsDeCsv(conteudo) {
         dataFechamento: dataBr(linha.data_fechamento),
         cliente: { nome: linha.cliente_nome, documento: soDigitos(linha.cliente_documento) },
         placa: linha.placa.toUpperCase(),
+        formaPagamento: linha.forma_pagamento ?? '',
         itens: [],
       });
     }

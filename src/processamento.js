@@ -8,7 +8,8 @@ import { lerOsDeCsv } from './hts/importarCsv.js';
 import { carregarMapeamento } from './mapeamento.js';
 import { validarOs } from './validacao.js';
 import { montarVenda } from './contaazul/montarVenda.js';
-import { buscarClientePorDocumento, criarVenda } from './contaazul/cliente.js';
+import { buscarClientePorDocumento, criarVenda, proximoNumeroVenda } from './contaazul/cliente.js';
+import { normalizarFormaPagamento } from './pagamento.js';
 
 export const STATUS = {
   pendente: 'Pronta para aprovar',
@@ -77,7 +78,8 @@ function aplicarValidacao(os, mapeamento) {
   os.status = os.problemas.length ? 'com_erro' : 'pendente';
 }
 
-// Monta a venda consultando o cliente no Conta Azul (só leitura). Não cria nada.
+// Monta a venda consultando o cliente e o próximo número de venda no Conta Azul
+// (só leitura). Não cria nada.
 export async function prepararVenda(os) {
   const mapeamento = carregarMapeamento();
   const problemas = validarOs(os, mapeamento);
@@ -89,7 +91,18 @@ export async function prepararVenda(os) {
       problemas: [`Cliente ${os.cliente.nome} (${os.cliente.documento}) não está cadastrado no Conta Azul de ${os.unidade}. Cadastre e tente de novo.`],
     };
   }
-  return { venda: montarVenda(os, { idCliente: cliente.id, mapeamento }) };
+  const c = config();
+  if (!['APROVADO', 'EM_ANDAMENTO'].includes(c.situacaoVenda)) {
+    throw new Error(`SITUACAO_VENDA no .env deve ser APROVADO ou EM_ANDAMENTO (está "${c.situacaoVenda}").`);
+  }
+  const venda = montarVenda(os, {
+    idCliente: cliente.id,
+    numero: await proximoNumeroVenda(os.unidade),
+    mapeamento,
+    situacao: c.situacaoVenda,
+    formaPagamento: normalizarFormaPagamento(os.formaPagamento) || normalizarFormaPagamento(c.formaPagamentoPadrao) || '',
+  });
+  return { venda };
 }
 
 export async function aprovarEEnviar(chave) {

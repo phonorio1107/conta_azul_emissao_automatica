@@ -1,19 +1,19 @@
-// Transforma uma OS do HTS no corpo de "Criar uma nova venda" (POST /v1/venda).
-//
-// ATENÇÃO: confirmados na documentação oficial só "id_cliente" (UUID do cliente)
-// e "itens" (lista obrigatória). Os demais nomes de campo seguem o padrão da API v2,
-// mas precisam ser conferidos no OpenAPI de Vendas do portal antes de ligar o
-// ENVIO_REAL. Se algo estiver diferente, o ajuste é só neste arquivo.
+// Transforma uma OS do HTS no corpo de "Criar uma nova venda" (POST /v1/venda),
+// conforme o OpenAPI oficial (docs/openapi/vendas.json, schema CriacaoVendaRequest).
 //
 // Não colocamos CFOP, natureza de operação nem tributação aqui: isso fica na
 // configuração fiscal de cada produto/serviço no próprio Conta Azul, como hoje.
 import { chaveMapa } from '../mapeamento.js';
+import { totalOs } from '../validacao.js';
 
-export function montarVenda(os, { idCliente, mapeamento }) {
-  return {
+export function montarVenda(os, { idCliente, numero, mapeamento, situacao, formaPagamento }) {
+  const descontoTotal = arredondar(os.itens.reduce((soma, i) => soma + (i.desconto || 0), 0), 2);
+
+  const venda = {
     id_cliente: idCliente,
+    numero,
+    situacao,
     data_venda: os.dataFechamento,
-    situacao: 'APROVADO',
     observacoes: `OS ${os.numero} (HTS) – placa ${os.placa || 'não informada'}`,
     itens: os.itens.map((item) => {
       const mapa = mapeamento.get(chaveMapa(os.unidade, item.tipo, item.codigoHts));
@@ -24,10 +24,17 @@ export function montarVenda(os, { idCliente, mapeamento }) {
         quantidade,
         // Mantém o total da linha igual ao da OS mesmo quando há conversão de unidade.
         valor: arredondar((item.quantidade * item.valorUnitario) / quantidade, 2),
-        ...(item.desconto ? { desconto: arredondar(item.desconto, 2) } : {}),
       };
     }),
+    // A API só aceita desconto no total da venda, então somamos os descontos da OS.
+    ...(descontoTotal > 0 ? { composicao_de_valor: { desconto: { tipo: 'VALOR', valor: descontoTotal } } } : {}),
+    condicao_pagamento: {
+      ...(formaPagamento ? { tipo_pagamento: formaPagamento } : {}),
+      opcao_condicao_pagamento: 'À vista',
+      parcelas: [{ data_vencimento: os.dataFechamento, valor: arredondar(totalOs(os), 2) }],
+    },
   };
+  return venda;
 }
 
 function arredondar(valor, casas) {

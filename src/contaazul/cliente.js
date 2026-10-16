@@ -35,31 +35,44 @@ function tentarJson(texto) {
   }
 }
 
-// A API pagina as listas; a resposta costuma vir em "itens". Junta todas as páginas.
+// Cada lista da API vem num formato: pessoas e produtos em "items", vendas em
+// "itens", e serviços como uma lista de páginas, cada uma com "itens".
+export function extrairLista(dados) {
+  if (Array.isArray(dados)) {
+    return dados.some((d) => Array.isArray(d?.itens)) ? dados.flatMap((d) => d.itens ?? []) : dados;
+  }
+  return dados?.items ?? dados?.itens ?? [];
+}
+
+// Junta todas as páginas de uma lista.
 export async function listarTudo(unidade, caminho, consulta = {}, tamanho = 100) {
   const todos = [];
   for (let pagina = 1; pagina <= 200; pagina++) {
     const dados = await chamar(unidade, 'GET', caminho, {
       consulta: { ...consulta, pagina, tamanho_pagina: tamanho },
     });
-    const itens = Array.isArray(dados) ? dados : dados?.itens ?? [];
+    const itens = extrairLista(dados);
     todos.push(...itens);
     if (itens.length < tamanho) break;
   }
   return todos;
 }
 
-export async function buscarVendas(unidade, consulta = {}) {
-  return chamar(unidade, 'GET', CAMINHOS.buscarVendas, { consulta: { pagina: 1, tamanho_pagina: 10, ...consulta } });
+export async function contaConectada(unidade) {
+  return chamar(unidade, 'GET', CAMINHOS.contaConectada);
 }
 
 export async function buscarClientePorDocumento(unidade, documento) {
+  const digitos = String(documento ?? '').replace(/\D/g, '');
   const dados = await chamar(unidade, 'GET', CAMINHOS.pessoas, {
-    consulta: { busca: documento, pagina: 1, tamanho_pagina: 10 },
+    consulta: { documentos: digitos, pagina: 1, tamanho_pagina: 10 },
   });
-  const itens = Array.isArray(dados) ? dados : dados?.itens ?? [];
-  const so = (v) => String(v ?? '').replace(/\D/g, '');
-  return itens.find((p) => so(p.documento ?? p.cpf ?? p.cnpj) === so(documento)) ?? null;
+  // Confere de novo aqui: o cadastro pode guardar o documento com pontos e traço.
+  return extrairLista(dados).find((p) => String(p.documento ?? '').replace(/\D/g, '') === digitos) ?? null;
+}
+
+export async function proximoNumeroVenda(unidade) {
+  return Number(await chamar(unidade, 'GET', CAMINHOS.proximoNumeroVenda));
 }
 
 export async function criarVenda(unidade, venda) {

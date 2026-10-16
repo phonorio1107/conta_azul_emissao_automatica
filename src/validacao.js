@@ -2,6 +2,7 @@
 // lista vazia = OS pronta para aprovar.
 import { UNIDADES } from './config.js';
 import { chaveMapa } from './mapeamento.js';
+import { normalizarFormaPagamento } from './pagamento.js';
 
 export function validarOs(os, mapeamento) {
   const problemas = [];
@@ -13,6 +14,10 @@ export function validarOs(os, mapeamento) {
   const doc = os.cliente?.documento ?? '';
   if (!os.cliente?.nome) problemas.push('Cliente sem nome.');
   if (doc.length !== 11 && doc.length !== 14) problemas.push('Cliente sem CPF/CNPJ válido (precisa de 11 ou 14 dígitos).');
+
+  if (normalizarFormaPagamento(os.formaPagamento) === null) {
+    problemas.push(`Forma de pagamento "${os.formaPagamento}" não reconhecida (use Pix, Dinheiro, Crédito, Débito, Boleto...).`);
+  }
 
   if (!os.itens?.length) problemas.push('OS sem itens.');
   os.itens?.forEach((item, i) => {

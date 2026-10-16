@@ -20,6 +20,10 @@ export function config() {
     redirectUri: process.env.CONTAAZUL_REDIRECT_URI ?? 'http://localhost:3000/oauth/retorno',
     scope: process.env.CONTAAZUL_SCOPE ?? 'openid profile aws.cognito.signin.user.admin',
     envioReal: process.env.ENVIO_REAL === 'true',
+    // Situação com que a venda nasce no Conta Azul: APROVADO ou EM_ANDAMENTO.
+    situacaoVenda: process.env.SITUACAO_VENDA || 'APROVADO',
+    // Usada quando a OS não informa a forma de pagamento. Vazio = não informar.
+    formaPagamentoPadrao: process.env.FORMA_PAGAMENTO_PADRAO ?? '',
     porta: Number(process.env.PORTA ?? 3000),
   };
 }

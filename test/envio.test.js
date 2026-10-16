@@ -18,6 +18,7 @@ const { lerOsDeCsv } = await import('../src/hts/importarCsv.js');
 const fetchOriginal = globalThis.fetch;
 let respostaVenda;
 const chamadas = [];
+const corpos = [];
 
 before(() => {
   fs.copyFileSync(new URL('../exemplos/mapeamento-exemplo.csv', import.meta.url), path.join(pasta, 'mapeamento.csv'));
@@ -29,10 +30,14 @@ before(() => {
     const u = new URL(url);
     chamadas.push(`${opcoes.method ?? 'GET'} ${u.pathname}`);
     if (u.pathname === '/v1/pessoas') {
-      const pessoas = u.searchParams.get('busca') === '12345678909' ? [{ id: 'cli-1', documento: '123.456.789-09' }] : [];
-      return new Response(JSON.stringify({ itens: pessoas }), { status: 200 });
+      const pessoas = u.searchParams.get('documentos') === '12345678909' ? [{ id: 'cli-1', documento: '123.456.789-09' }] : [];
+      return new Response(JSON.stringify({ items: pessoas, totalItems: pessoas.length }), { status: 200 });
     }
-    if (u.pathname === '/v1/venda') return respostaVenda();
+    if (u.pathname === '/v1/venda/proximo-numero') return new Response('4512', { status: 200 });
+    if (u.pathname === '/v1/venda') {
+      corpos.push(JSON.parse(opcoes.body));
+      return respostaVenda();
+    }
     return new Response('{}', { status: 404 });
   };
 });
@@ -49,6 +54,15 @@ test('cria a venda e não deixa enviar a mesma OS duas vezes', async () => {
   assert.equal(os1.venda.numero, 321);
   await assert.rejects(aprovarEEnviar('vinhedo:1001'), /não pode ser enviada/);
   assert.equal(chamadas.filter((c) => c === 'POST /v1/venda').length, 1);
+
+  // Campos obrigatórios do OpenAPI (CriacaoVendaRequest).
+  const [enviada] = corpos;
+  for (const campo of ['id_cliente', 'numero', 'situacao', 'data_venda', 'itens', 'condicao_pagamento']) {
+    assert.ok(enviada[campo] !== undefined, campo);
+  }
+  assert.equal(enviada.id_cliente, 'cli-1');
+  assert.equal(enviada.numero, 4512);
+  assert.ok(enviada.itens.every((i) => i.id && i.quantidade > 0 && i.valor >= 0));
 
   executarAcao('vinhedo:1001', 'marcar_nf_emitida');
   assert.equal(obterOs('vinhedo:1001').status, 'nf_emitida');

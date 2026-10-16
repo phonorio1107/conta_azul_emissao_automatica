@@ -1,16 +1,17 @@
-// Teste SÓ DE LEITURA: lista as categorias financeiras da unidade (o mesmo teste
-// que o portal do Conta Azul sugere). Não cria nem altera nada.
+// Teste SÓ DE LEITURA: mostra qual empresa está conectada a esta unidade.
+// Não cria nem altera nada.
 // Uso: npm run testar-conexao -- vinhedo
 import { validarUnidade } from '../src/config.js';
-import { chamar } from '../src/contaazul/cliente.js';
-import { CAMINHOS } from '../src/contaazul/endpoints.js';
+import { contaConectada } from '../src/contaazul/cliente.js';
 
 try {
   const unidade = validarUnidade((process.argv[2] ?? '').toLowerCase());
-  const resposta = await chamar(unidade, 'GET', CAMINHOS.categorias);
-  const categorias = Array.isArray(resposta) ? resposta : resposta?.itens ?? [];
-  console.log(`Conexão OK com o Conta Azul de ${unidade}. Categorias encontradas: ${categorias.length}`);
-  console.log(JSON.stringify(categorias.slice(0, 3), null, 2));
+  const empresa = await contaConectada(unidade);
+  console.log(`Conexão OK. A unidade "${unidade}" está ligada a:`);
+  console.log(`  Razão social: ${empresa?.razao_social ?? '—'}`);
+  console.log(`  Nome fantasia: ${empresa?.nome_fantasia ?? '—'}`);
+  console.log(`  CNPJ: ${empresa?.documento ?? '—'}`);
+  console.log('Confira se é a empresa certa antes de seguir.');
 } catch (erro) {
   console.error(`Erro: ${erro.message}`);
   process.exitCode = 1;

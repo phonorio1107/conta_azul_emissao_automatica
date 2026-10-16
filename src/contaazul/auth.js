@@ -47,6 +47,14 @@ export async function concluirAutorizacao({ code, state }) {
   return unidade;
 }
 
+// Atalho do app de desenvolvimento: o portal já entrega um refresh_token da conta
+// de teste, então dá para conectar sem passar pela tela de login.
+export async function conectarComRefreshToken(unidade, refreshToken) {
+  validarUnidade(unidade);
+  const tokens = await pedirToken({ grant_type: 'refresh_token', refresh_token: refreshToken.trim() });
+  salvarTokens(unidade, { refresh_token: refreshToken.trim(), ...tokens });
+}
+
 export function unidadeAutorizada(unidade) {
   return Boolean(lerJson('tokens.json', {})[unidade]);
 }
