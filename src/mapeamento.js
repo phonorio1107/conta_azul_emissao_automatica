@@ -43,3 +43,26 @@ export function chaveMapa(unidade, tipo, codigo) {
   const normalizado = String(codigo).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
   return `${String(unidade).toLowerCase()}|${String(tipo).toLowerCase()}|${normalizado}`;
 }
+
+// Acrescenta linhas ao dados/mapeamento.csv (cria o arquivo se não existir).
+// Cada linha: { unidade, tipo, codigoHts, idContaAzul, fator, observacao }.
+export function adicionarMapeamentos(linhas) {
+  if (!linhas.length) return;
+  fs.mkdirSync(PASTA_DADOS, { recursive: true });
+  const celula = (v) => {
+    const t = String(v ?? '');
+    return /[;"\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+  };
+  let texto = '';
+  if (!fs.existsSync(ARQUIVO_MAPEAMENTO)) {
+    texto = 'unidade;tipo;codigo_hts;id_conta_azul;fator_conversao;observacao\n';
+  } else if (!fs.readFileSync(ARQUIVO_MAPEAMENTO, 'utf8').endsWith('\n')) {
+    texto = '\n';
+  }
+  for (const l of linhas) {
+    texto += [l.unidade, l.tipo, l.codigoHts, l.idContaAzul, String(l.fator ?? 1).replace('.', ','), l.observacao]
+      .map(celula)
+      .join(';') + '\n';
+  }
+  fs.appendFileSync(ARQUIVO_MAPEAMENTO, texto);
+}

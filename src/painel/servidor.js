@@ -1,12 +1,17 @@
 // Painel local: http://localhost:3000
 // Só aceita conexões do próprio computador, porque não tem login.
+import fs from 'node:fs';
+import path from 'node:path';
 import express from 'express';
-import { config, UNIDADES } from '../config.js';
-import { listarOs, obterOs } from '../armazenamento.js';
+import { config, UNIDADES, PASTA_ENTRADA } from '../config.js';
+import { listarOs, obterOs, lerJson } from '../armazenamento.js';
 import { linkDeAutorizacao, concluirAutorizacao, unidadeAutorizada } from '../contaazul/auth.js';
 import {
   STATUS, ACOES, importarPastaDeEntrada, revalidarPendentes, prepararVenda, aprovarEEnviar, executarAcao,
+  itensSemMapeamento,
 } from '../processamento.js';
+import { adicionarMapeamentos, chaveMapa } from '../mapeamento.js';
+import { obterCatalogo } from '../catalogo.js';
 import { totalOs, tipoOs } from '../validacao.js';
 import { reais } from '../numeros.js';
 import { pagina, esc } from './html.js';
@@ -39,6 +44,7 @@ app.get('/', (req, res) => {
     .map((s) => `<a class="cartao" href="/?status=${s}" style="color:inherit;text-decoration:none">${etiqueta(s)}<b>${contagem[s]}</b></a>`)
     .join('');
 
+  const pendentesMapa = itensSemMapeamento().length;
   const unidades = Object.entries(UNIDADES)
     .map(([id, nome]) =>
       unidadeAutorizada(id)
@@ -72,9 +78,25 @@ app.get('/', (req, res) => {
     `<div class="acoes">${unidades}</div>
      <div class="cartoes">${cartoes}</div>
      <div class="acoes">
-       <form class="inline" method="post" action="/importar"><button>Importar OS da pasta "entrada"</button></form>
-       <form class="inline" method="post" action="/revalidar"><button class="secundario">Revalidar (depois de mexer no mapeamento)</button></form>
+       <label class="botao">Enviar PDFs das OS
+         <input id="arquivos" type="file" accept=".pdf,.csv" multiple hidden onchange="enviarArquivos(this.files)">
+       </label>
+       <form class="inline" method="post" action="/importar"><button class="secundario">Importar da pasta "entrada"</button></form>
+       ${pendentesMapa ? `<a class="botao secundario" href="/mapeamento">Mapear itens (${pendentesMapa} pendente${pendentesMapa > 1 ? 's' : ''})</a>` : ''}
      </div>
+     <script>
+       async function enviarArquivos(arquivos) {
+         for (const arquivo of arquivos) {
+           const r = await fetch('/enviar?nome=' + encodeURIComponent(arquivo.name), {
+             method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: arquivo,
+           });
+           if (!r.ok) { alert('Não foi possível enviar ' + arquivo.name + ': ' + await r.text()); return; }
+         }
+         const f = document.createElement('form');
+         f.method = 'post'; f.action = '/importar';
+         document.body.appendChild(f); f.submit();
+       }
+     </script>
      <p class="filtros">${filtroStatus}</p>
      <table>
        <thead><tr><th>OS</th><th>Unidade</th><th class="esconder-celular">Fechada em</th><th>Cliente</th>
@@ -139,6 +161,7 @@ app.get('/os/:chave', (req, res) => {
         <b>Placa:</b> ${esc(os.placa)} · <b>Fechada em:</b> ${dataBr(os.dataFechamento)} · <b>Tipo:</b> ${tipoOs(os)}
         ${os.venda?.numero ? `<br><b>Venda no Conta Azul:</b> nº ${esc(os.venda.numero)}` : ''}</p>
      ${os.problemas?.length ? `<ul class="problemas">${os.problemas.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}
+     ${os.problemas?.some((p) => p.includes('sem correspondente')) ? '<p><a class="botao secundario" href="/mapeamento">Mapear os itens desta OS</a></p>' : ''}
      ${os.status === 'venda_criada' ? '<p class="aviso">Venda criada. Abra-a no Conta Azul, confira e clique em "Emitir nota fiscal". Depois marque aqui como "NF emitida".</p>' : ''}
      <div class="acoes">${enviar}${acoes}</div>
      <table><thead><tr><th>Tipo</th><th>Chave do mapeamento</th><th>Descrição</th><th class="num">Qtd</th><th class="num">Unitário</th><th class="num">Desconto</th><th class="num">Total</th></tr></thead>
@@ -190,6 +213,122 @@ app.post('/os/:chave/acao', (req, res) => {
     voltar(res, rotaOs(req.params.chave), erro.message);
   }
 });
+
+// Recebe um arquivo escolhido no navegador e salva na pasta "entrada".
+app.post('/enviar', express.raw({ type: 'application/octet-stream', limit: '25mb' }), (req, res) => {
+  const nome = path.basename(String(req.query.nome ?? '')).replace(/[^\w.\- ()]/g, '_');
+  if (!/\.(pdf|csv)$/i.test(nome)) return res.status(400).send('Só aceito arquivos .pdf ou .csv.');
+  fs.mkdirSync(PASTA_ENTRADA, { recursive: true });
+  fs.writeFileSync(path.join(PASTA_ENTRADA, nome), req.body);
+  res.send('ok');
+});
+
+// Tela de mapeamento: liga cada item das OS a um produto/serviço do Conta Azul.
+app.get('/mapeamento', async (req, res) => {
+  const pendentes = itensSemMapeamento();
+  if (!pendentes.length) {
+    return responder(res, 'Mapear itens', '<p><a href="/">← voltar</a></p><h1>Mapear itens</h1><p>Nenhum item pendente. Tudo mapeado.</p>', req.query.aviso);
+  }
+
+  const catalogos = {};
+  const avisos = [];
+  for (const unidade of new Set(pendentes.map((p) => p.unidade))) {
+    if (!unidadeAutorizada(unidade)) {
+      avisos.push(`${UNIDADES[unidade] ?? unidade}: conecte a unidade ao Conta Azul para ver o catálogo.`);
+      continue;
+    }
+    try {
+      catalogos[unidade] = await obterCatalogo(unidade);
+    } catch (erro) {
+      avisos.push(`${UNIDADES[unidade] ?? unidade}: não consegui baixar o catálogo (${erro.message}).`);
+    }
+  }
+
+  const linhas = pendentes
+    .map((p, i) => {
+      const catalogo = catalogos[p.unidade];
+      const opcoes = (catalogo?.itens ?? []).filter((c) => c.tipo === p.tipo);
+      const sugestao = opcoes.find((c) => chaveMapa('', '', c.nome) === chaveMapa('', '', p.codigoHts));
+      const select = catalogo
+        ? `<select name="id_${i}" style="max-width:100%">
+             <option value="">— escolher depois —</option>
+             ${opcoes
+               .map((c) => `<option value="${esc(c.id)}"${c === sugestao ? ' selected' : ''}>${esc(c.nome)}${c.codigo ? ` · ${esc(c.codigo)}` : ''}</option>`)
+               .join('')}
+           </select>`
+        : '<em>catálogo indisponível</em>';
+      return `<tr>
+        <td>${esc(UNIDADES[p.unidade] ?? p.unidade)}</td>
+        <td>${p.tipo === 'servico' ? 'Serviço' : 'Produto'}</td>
+        <td><b>${esc(p.codigoHts)}</b><br><small>OS ${p.oss.map(esc).join(', ')}</small>
+          <input type="hidden" name="unidade_${i}" value="${esc(p.unidade)}">
+          <input type="hidden" name="tipo_${i}" value="${esc(p.tipo)}">
+          <input type="hidden" name="codigo_${i}" value="${esc(p.codigoHts)}"></td>
+        <td>${select}</td>
+        <td><input name="fator_${i}" value="1" size="4" title="Quantas unidades do Conta Azul valem 1 unidade da OS"></td>
+      </tr>`;
+    })
+    .join('');
+
+  responder(
+    res,
+    'Mapear itens',
+    `<p><a href="/">← voltar</a></p>
+     <h1>Mapear itens</h1>
+     <p>Para cada item das OS, escolha o produto ou serviço correspondente no Conta Azul. Isso é feito <b>uma vez só</b>:
+        da próxima vez que o item aparecer, o sistema já sabe.</p>
+     ${avisos.length ? `<ul class="problemas">${avisos.map((a) => `<li>${esc(a)}</li>`).join('')}</ul>` : ''}
+     <form method="post" action="/mapeamento">
+       <input type="hidden" name="n" value="${pendentes.length}">
+       <table>
+         <thead><tr><th>Unidade</th><th>Tipo</th><th>Item na OS</th><th>Produto/serviço no Conta Azul</th><th>Fator</th></tr></thead>
+         <tbody>${linhas}</tbody>
+       </table>
+       <div class="acoes"><button>Salvar mapeamento</button></div>
+     </form>
+     <form method="post" action="/mapeamento/atualizar-catalogo">
+       <p>Cadastrou um produto ou serviço novo no Conta Azul? <button class="secundario">Atualizar a lista do Conta Azul</button></p>
+     </form>`,
+    req.query.aviso,
+  );
+});
+
+app.post('/mapeamento', (req, res) => {
+  const n = Number(req.body.n) || 0;
+  const linhas = [];
+  for (let i = 0; i < n; i++) {
+    const id = req.body[`id_${i}`];
+    if (!id) continue;
+    const unidade = req.body[`unidade_${i}`];
+    const nome = nomeNoCatalogo(unidade, id);
+    linhas.push({
+      unidade,
+      tipo: req.body[`tipo_${i}`],
+      codigoHts: req.body[`codigo_${i}`],
+      idContaAzul: id,
+      fator: String(req.body[`fator_${i}`] || '1').replace(',', '.'),
+      observacao: nome,
+    });
+  }
+  adicionarMapeamentos(linhas);
+  revalidarPendentes();
+  voltar(res, '/', `${linhas.length} item(ns) mapeado(s). As OS foram conferidas de novo.`);
+});
+
+app.post('/mapeamento/atualizar-catalogo', async (req, res) => {
+  try {
+    for (const unidade of Object.keys(UNIDADES)) {
+      if (unidadeAutorizada(unidade)) await obterCatalogo(unidade, { atualizar: true });
+    }
+    voltar(res, '/mapeamento', 'Lista do Conta Azul atualizada.');
+  } catch (erro) {
+    voltar(res, '/mapeamento', erro.message);
+  }
+});
+
+function nomeNoCatalogo(unidade, id) {
+  return lerJson(`catalogo-${unidade}.json`, { itens: [] }).itens.find((c) => c.id === id)?.nome ?? '';
+}
 
 app.get('/autorizar/:unidade', (req, res) => {
   try {

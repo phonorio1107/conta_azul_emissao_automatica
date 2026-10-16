@@ -6,7 +6,7 @@ import { PASTA_ENTRADA, config } from './config.js';
 import { listarOs, obterOs, salvarOs, registrarHistorico } from './armazenamento.js';
 import { lerOsDeCsv } from './hts/importarCsv.js';
 import { lerOsDePdf } from './hts/lerPdf.js';
-import { carregarMapeamento } from './mapeamento.js';
+import { carregarMapeamento, chaveMapa } from './mapeamento.js';
 import { validarOs } from './validacao.js';
 import { montarVenda } from './contaazul/montarVenda.js';
 import { buscarCliente, criarVenda, proximoNumeroVenda } from './contaazul/cliente.js';
@@ -81,6 +81,27 @@ export function revalidarPendentes() {
 function aplicarValidacao(os, mapeamento) {
   os.problemas = validarOs(os, mapeamento);
   os.status = os.problemas.length ? 'com_erro' : 'pendente';
+}
+
+// Itens das OS ainda não enviadas que não têm correspondente no Conta Azul,
+// sem repetição. Alimenta a tela de mapeamento.
+export function itensSemMapeamento() {
+  const mapeamento = carregarMapeamento();
+  const pendentes = new Map();
+  for (const os of listarOs()) {
+    if (TRAVADOS.has(os.status)) continue;
+    for (const item of os.itens ?? []) {
+      if (item.tipo !== 'produto' && item.tipo !== 'servico') continue;
+      const chave = chaveMapa(os.unidade, item.tipo, item.codigoHts);
+      if (mapeamento.has(chave)) continue;
+      if (!pendentes.has(chave)) {
+        pendentes.set(chave, { chave, unidade: os.unidade, tipo: item.tipo, codigoHts: item.codigoHts, descricao: item.descricao, oss: [] });
+      }
+      const p = pendentes.get(chave);
+      if (!p.oss.includes(os.numero)) p.oss.push(os.numero);
+    }
+  }
+  return [...pendentes.values()];
 }
 
 // Monta a venda consultando o cliente e o próximo número de venda no Conta Azul

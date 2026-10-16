@@ -70,28 +70,33 @@ npm run testar-conexao -- vinhedo
 
 Deve aparecer "Conexão OK" com o nome e o CNPJ da empresa da conta de teste.
 
-## 5. Montar um mapeamento de teste
+## 5. Abrir o painel e enviar uma OS
 
-1. Baixe os produtos e serviços da conta de teste:
-   ```
-   npm run exportar-catalogo -- vinhedo
-   ```
-   Isso gera `dados/catalogo-vinhedo.csv`. Abra no Excel.
-2. Crie `dados/mapeamento.csv` no formato de `exemplos/mapeamento-exemplo.csv`. Cada linha liga um item da OS a um produto ou serviço do Conta Azul (coluna `id_conta_azul`, copiada do catálogo).
-   - Para **OS em PDF**, a coluna `codigo_hts` é a **descrição do item como aparece no PDF**, sem o trecho entre parênteses. Exemplos: `Filtro de oleo`, `Revisão Preço Fixo HT BASIC`. Acentos e maiúsculas não importam.
-   - Não precisa fazer tudo de uma vez: o painel avisa exatamente qual descrição está faltando.
-
-## 6. Rodar o painel em simulação
-
-1. Coloque na pasta `entrada/` os **PDFs das OS** baixados do HTS (ou uma planilha CSV, veja o passo 9).
-   - Na conta de teste, o cliente da OS precisa existir com o mesmo nome ou e-mail. Se não existir, cadastre um igual na conta de teste.
-3. Rode:
+1. Rode:
    ```
    npm run painel
    ```
-4. Abra **http://localhost:3000**, clique em **Importar** e depois em **Ver o que seria enviado** em cada OS.
+   e deixe essa janela aberta.
+2. Abra **http://localhost:3000** no navegador.
+3. Clique em **Enviar PDFs das OS** e escolha o PDF (ou os PDFs) baixado do HTS.
 
-## 7. Criar uma venda de verdade na conta de teste
+## 6. Mapear os itens (uma vez por item)
+
+Na primeira vez, as OS aparecem **Com problema**, porque o sistema ainda não sabe a que produto ou serviço do Conta Azul cada item corresponde.
+
+1. Clique em **Mapear itens**.
+2. Para cada item, escolha na lista o produto ou serviço do Conta Azul. Quando o nome é igual, ele já vem selecionado.
+3. **Fator:** deixe `1`, a não ser que a unidade seja diferente (por exemplo, a OS em "pacote" e o Conta Azul em "unidade").
+4. Clique em **Salvar mapeamento**. As OS são conferidas de novo na hora.
+
+Cadastrou um produto ou serviço novo no Conta Azul? Use **Atualizar a lista do Conta Azul**, no fim da mesma tela.
+
+## 7. Conferir em simulação
+
+1. Na conta de teste, o cliente da OS precisa existir com o **mesmo nome ou e-mail**. Se não existir, cadastre um igual no Conta Azul da conta de teste.
+2. No painel, abra uma OS **Pronta para aprovar** e clique em **Ver o que seria enviado**.
+
+## 8. Criar uma venda de verdade na conta de teste
 
 1. No `.env`, troque `ENVIO_REAL=false` para `ENVIO_REAL=true`.
 2. Feche o painel (Ctrl+C no Prompt) e rode `npm run painel` de novo.
@@ -114,12 +119,12 @@ Só depois que a fase 1 estiver redonda.
 3. Apague o arquivo `dados/tokens.json` (é a conexão com a conta de teste).
 4. Rode `npm run painel`, abra http://localhost:3000 e clique em **Conectar Vinhedo** (login de Vinhedo) e em **Conectar Barueri** (login de Barueri).
 5. Rode `npm run testar-conexao -- vinhedo` e `-- barueri` e confira se cada um mostra o **CNPJ certo**.
-6. Refaça o mapeamento com os catálogos reais (passo 5, para as duas unidades).
+6. Apague `dados/mapeamento.csv` e `dados/catalogo-*.json` (eram da conta de teste) e refaça o mapeamento pela tela **Mapear itens**.
 7. Simule por alguns dias. Depois, `ENVIO_REAL=true`.
 
 ---
 
-## 8. Configurações do `.env`
+## 9. Configurações do `.env`
 
 | Linha | O que faz |
 |---|---|
@@ -129,7 +134,7 @@ Só depois que a fase 1 estiver redonda.
 
 > A venda vai com pagamento **à vista**, em **uma parcela** com vencimento na data da OS. Se Vinhedo e Barueri lançam pagamento de outro jeito, combine com a Sol antes da fase 2, porque isso gera o contas a receber.
 
-## 9. Como o sistema lê as OS
+## 10. Como o sistema lê as OS
 
 **PDF do HTS (o normal):** basta soltar o PDF na pasta `entrada/`. O sistema lê unidade, número, data de faturamento, cliente (nome e e-mail), placa, serviços e peças.
 - O PDF não traz CPF/CNPJ. O cliente é procurado no Conta Azul **pelo e-mail** e, se não achar, **pelo nome**. Só segue se achar exatamente um; na prévia você vê qual foi.
@@ -155,8 +160,8 @@ Só depois que a fase 1 estiver redonda.
 
 ## Dia a dia (depois da fase 2)
 
-1. Baixar do HTS o PDF das OS faturadas, salvar na pasta `entrada/` e clicar em **Importar**.
-2. Resolver as OS **Com problema** (cadastro de cliente, mapeamento).
+1. Baixar do HTS o PDF das OS faturadas e, no painel, clicar em **Enviar PDFs das OS**.
+2. Resolver as OS **Com problema**: item novo vai em **Mapear itens**; cliente não encontrado se cadastra no Conta Azul.
 3. Em cada OS **Pronta para aprovar**, conferir e clicar em **Aprovar e criar venda**.
 4. No Conta Azul, abrir a venda e clicar em **Emitir nota fiscal**.
 5. Voltar ao painel e marcar **NF emitida**.
