@@ -60,7 +60,7 @@ npm run autorizar -- vinhedo
 ```
 1. Abra o link que aparecer e entre com o **usuário e a senha da conta de teste**.
 2. O navegador vai para `contaazul.com?code=...`.
-3. Copie o endereço inteiro da barra e cole no Prompt. **Seja rápido: o código vale só 3 minutos.**
+3. Copie o endereço inteiro da barra (Ctrl+C), volte ao Prompt e só aperte **Enter**: o endereço é lido da área de transferência. **Seja rápido: o código vale só 3 minutos.**
 
 ## 4. Testar a conexão (só leitura)
 
