@@ -3,7 +3,7 @@
 Como funciona (cenário B):
 
 ```
-HTS (OS fechada) ──CSV──> Painel (confere e você aprova) ──API──> Conta Azul (venda criada)
+HTS (OS faturada) ──PDF──> Painel (confere e você aprova) ──API──> Conta Azul (venda criada)
                                                                      │
                                                  você clica "Emitir nota fiscal" na venda
 ```
@@ -77,12 +77,14 @@ Deve aparecer "Conexão OK" com o nome e o CNPJ da empresa da conta de teste.
    npm run exportar-catalogo -- vinhedo
    ```
    Isso gera `dados/catalogo-vinhedo.csv`. Abra no Excel.
-2. Crie `dados/mapeamento.csv` no formato de `exemplos/mapeamento-exemplo.csv`. Ligue os códigos da sua planilha de OS a alguns produtos e serviços do catálogo de teste (coluna `id_conta_azul`).
+2. Crie `dados/mapeamento.csv` no formato de `exemplos/mapeamento-exemplo.csv`. Cada linha liga um item da OS a um produto ou serviço do Conta Azul (coluna `id_conta_azul`, copiada do catálogo).
+   - Para **OS em PDF**, a coluna `codigo_hts` é a **descrição do item como aparece no PDF**, sem o trecho entre parênteses. Exemplos: `Filtro de oleo`, `Revisão Preço Fixo HT BASIC`. Acentos e maiúsculas não importam.
+   - Não precisa fazer tudo de uma vez: o painel avisa exatamente qual descrição está faltando.
 
 ## 6. Rodar o painel em simulação
 
-1. Monte um CSV de OS no formato de `exemplos/os-exemplo.csv` (veja o passo 9). Use o CPF/CNPJ de um cliente que exista na conta de teste.
-2. Salve na pasta `entrada/`.
+1. Coloque na pasta `entrada/` os **PDFs das OS** baixados do HTS (ou uma planilha CSV, veja o passo 9).
+   - Na conta de teste, o cliente da OS precisa existir com o mesmo nome ou e-mail. Se não existir, cadastre um igual na conta de teste.
 3. Rode:
    ```
    npm run painel
@@ -127,9 +129,13 @@ Só depois que a fase 1 estiver redonda.
 
 > A venda vai com pagamento **à vista**, em **uma parcela** com vencimento na data da OS. Se Vinhedo e Barueri lançam pagamento de outro jeito, combine com a Sol antes da fase 2, porque isso gera o contas a receber.
 
-## 9. Planilha de OS
+## 9. Como o sistema lê as OS
 
-Uma linha por item da OS, no formato de `exemplos/os-exemplo.csv`:
+**PDF do HTS (o normal):** basta soltar o PDF na pasta `entrada/`. O sistema lê unidade, número, data de faturamento, cliente (nome e e-mail), placa, serviços e peças.
+- O PDF não traz CPF/CNPJ. O cliente é procurado no Conta Azul **pelo e-mail** e, se não achar, **pelo nome**. Só segue se achar exatamente um; na prévia você vê qual foi.
+- Se a soma dos itens não bater com o TOTAL do PDF (por exemplo, por um desconto), a OS fica **Com problema** e não é enviada.
+
+**Planilha CSV (alternativa):** uma linha por item da OS, no formato de `exemplos/os-exemplo.csv`:
 
 | Coluna | Exemplo | Observação |
 |---|---|---|
@@ -149,7 +155,7 @@ Uma linha por item da OS, no formato de `exemplos/os-exemplo.csv`:
 
 ## Dia a dia (depois da fase 2)
 
-1. Exportar as OS fechadas do HTS para a pasta `entrada/` e clicar em **Importar**.
+1. Baixar do HTS o PDF das OS faturadas, salvar na pasta `entrada/` e clicar em **Importar**.
 2. Resolver as OS **Com problema** (cadastro de cliente, mapeamento).
 3. Em cada OS **Pronta para aprovar**, conferir e clicar em **Aprovar e criar venda**.
 4. No Conta Azul, abrir a venda e clicar em **Emitir nota fiscal**.

@@ -11,9 +11,13 @@ export function validarOs(os, mapeamento) {
   if (!os.numero) problemas.push('OS sem número.');
   if (!os.dataFechamento) problemas.push('Data de fechamento ausente ou fora do formato dd/mm/aaaa.');
 
+  problemas.push(...(os.problemasLeitura ?? []));
+
+  // Com CPF/CNPJ (planilha) o cliente é achado pelo documento; sem ele (PDF),
+  // pelo e-mail ou pelo nome.
   const doc = os.cliente?.documento ?? '';
   if (!os.cliente?.nome) problemas.push('Cliente sem nome.');
-  if (doc.length !== 11 && doc.length !== 14) problemas.push('Cliente sem CPF/CNPJ válido (precisa de 11 ou 14 dígitos).');
+  if (doc && doc.length !== 11 && doc.length !== 14) problemas.push('CPF/CNPJ do cliente inválido (precisa de 11 ou 14 dígitos).');
 
   if (normalizarFormaPagamento(os.formaPagamento) === null) {
     problemas.push(`Forma de pagamento "${os.formaPagamento}" não reconhecida (use Pix, Dinheiro, Crédito, Débito, Boleto...).`);

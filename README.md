@@ -23,7 +23,8 @@ Emissão automatizada de NFs de produto e serviço no ERP Conta Azul, a partir d
 src/
   config.js            unidades e variáveis do .env
   armazenamento.js     estado das OS em dados/*.json
-  hts/importarCsv.js   entrada das OS (CSV); futuro: API/banco do HTS
+  hts/lerPdf.js        entrada das OS pelo PDF do HTS
+  hts/importarCsv.js   entrada das OS por planilha CSV (alternativa)
   mapeamento.js        código HTS -> id Conta Azul
   validacao.js         conferência da OS antes do envio
   processamento.js     fluxo: importar, validar, aprovar, criar venda
@@ -40,5 +41,6 @@ exemplos/              modelos de CSV
 - [x] Modo simulação (`ENVIO_REAL=false`, padrão)
 - [x] Campos e endereços conferidos com o OpenAPI oficial (`docs/openapi/`)
 - [ ] Primeiro teste real com a conta de teste do app de desenvolvimento
-- [ ] Leitura direta do HTS (depende do Lucas)
+- [x] Leitura do PDF da OS gerado pelo HTS
+- [ ] Leitura direta do HTS por API (opcional; depende do Lucas)
 - [ ] Marcar "NF emitida" automaticamente, consultando as notas pela venda na API

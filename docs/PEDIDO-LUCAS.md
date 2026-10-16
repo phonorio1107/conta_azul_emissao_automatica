@@ -1,5 +1,9 @@
 # Pedido para o Lucas (HTS)
 
+> **Opcional.** O sistema já lê o PDF da OS que o HTS gera, então não depende mais do Lucas.
+> O único pedido que ainda ajudaria é incluir o **CPF/CNPJ do cliente no PDF da OS**: assim
+> o cliente é achado no Conta Azul pelo documento, em vez de por e-mail ou nome.
+
 Mensagem curta e objetiva para mandar a ele:
 
 ---

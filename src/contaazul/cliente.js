@@ -62,14 +62,49 @@ export async function contaConectada(unidade) {
   return chamar(unidade, 'GET', CAMINHOS.contaConectada);
 }
 
-export async function buscarClientePorDocumento(unidade, documento) {
-  const digitos = String(documento ?? '').replace(/\D/g, '');
-  const dados = await chamar(unidade, 'GET', CAMINHOS.pessoas, {
-    consulta: { documentos: digitos, pagina: 1, tamanho_pagina: 10 },
-  });
-  // Confere de novo aqui: o cadastro pode guardar o documento com pontos e traço.
-  return extrairLista(dados).find((p) => String(p.documento ?? '').replace(/\D/g, '') === digitos) ?? null;
+// Procura o cliente da OS no Conta Azul: pelo CPF/CNPJ quando a OS traz (planilha),
+// senão pelo e-mail e depois pelo nome (PDF). Só aceita quando acha exatamente um.
+// Devolve { cliente } ou { problema }.
+export async function buscarCliente(unidade, { documento, email, nome }) {
+  const pessoas = async (filtro) =>
+    extrairLista(await chamar(unidade, 'GET', CAMINHOS.pessoas, { consulta: { ...filtro, pagina: 1, tamanho_pagina: 10 } }));
+
+  if (documento) {
+    const digitos = soDigitos(documento);
+    // Confere de novo aqui: o cadastro pode guardar o documento com pontos e traço.
+    const achados = (await pessoas({ documentos: digitos })).filter((p) => soDigitos(p.documento) === digitos);
+    return unico(achados, `CPF/CNPJ ${documento}`);
+  }
+
+  if (email) {
+    const alvo = email.trim().toLowerCase();
+    const achados = (await pessoas({ emails: alvo })).filter((p) =>
+      String(p.email ?? '').toLowerCase().split(/[,;\s]+/).includes(alvo),
+    );
+    if (achados.length) return unico(achados, `e-mail ${email}`);
+  }
+
+  if (nome) {
+    const alvo = normalizarNome(nome);
+    const mesmoNome = (lista) => lista.filter((p) => normalizarNome(p.nome) === alvo);
+    let achados = mesmoNome(await pessoas({ nomes: nome.trim() }));
+    // Se o filtro exato não achar (acento, espaço), tenta a busca textual da API.
+    if (!achados.length) achados = mesmoNome(await pessoas({ busca: nome.trim() }));
+    return unico(achados, `nome "${nome}"`);
+  }
+
+  return { problema: 'A OS não traz CPF/CNPJ, e-mail nem nome do cliente.' };
 }
+
+function unico(achados, como) {
+  if (achados.length === 1) return { cliente: achados[0] };
+  if (achados.length === 0) return { problema: `Nenhum cliente com ${como} no Conta Azul. Cadastre e tente de novo.` };
+  return { problema: `Há ${achados.length} clientes com ${como} no Conta Azul. Deixe só um (ou ajuste o cadastro) e tente de novo.` };
+}
+
+const soDigitos = (v) => String(v ?? '').replace(/\D/g, '');
+const normalizarNome = (v) =>
+  String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
 
 export async function proximoNumeroVenda(unidade) {
   return Number(await chamar(unidade, 'GET', CAMINHOS.proximoNumeroVenda));

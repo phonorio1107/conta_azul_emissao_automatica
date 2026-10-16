@@ -2,6 +2,9 @@
 // Fica em dados/mapeamento.csv (modelo em exemplos/mapeamento-exemplo.csv).
 // Colunas: unidade;tipo;codigo_hts;id_conta_azul;fator_conversao;observacao
 //
+// Para OS em PDF (sem código), use em codigo_hts a descrição do item como aparece
+// no PDF, sem o trecho entre parênteses. Acentos e maiúsculas não importam.
+//
 // fator_conversao: quantas unidades do Conta Azul equivalem a 1 unidade do HTS.
 // Deixe 1 quando as unidades forem iguais.
 import fs from 'node:fs';
@@ -35,6 +38,8 @@ export function carregarMapeamento(conteudo) {
   return mapa;
 }
 
+// Ignora acentos, maiúsculas e espaços repetidos: "Óleo  do motor" = "oleo do motor".
 export function chaveMapa(unidade, tipo, codigo) {
-  return `${String(unidade).toLowerCase()}|${String(tipo).toLowerCase()}|${String(codigo).trim().toUpperCase()}`;
+  const normalizado = String(codigo).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
+  return `${String(unidade).toLowerCase()}|${String(tipo).toLowerCase()}|${normalizado}`;
 }

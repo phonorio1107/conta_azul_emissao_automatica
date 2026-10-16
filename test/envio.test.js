@@ -14,6 +14,8 @@ process.env.CONTAAZUL_CLIENT_SECRET = 'segredo';
 const { gravarJson, obterOs } = await import('../src/armazenamento.js');
 const { importarOs, aprovarEEnviar, executarAcao } = await import('../src/processamento.js');
 const { lerOsDeCsv } = await import('../src/hts/importarCsv.js');
+const { lerOsDePdf } = await import('../src/hts/lerPdf.js');
+const { buscarCliente } = await import('../src/contaazul/cliente.js');
 
 const fetchOriginal = globalThis.fetch;
 let respostaVenda;
@@ -30,7 +32,18 @@ before(() => {
     const u = new URL(url);
     chamadas.push(`${opcoes.method ?? 'GET'} ${u.pathname}`);
     if (u.pathname === '/v1/pessoas') {
-      const pessoas = u.searchParams.get('documentos') === '12345678909' ? [{ id: 'cli-1', documento: '123.456.789-09' }] : [];
+      const cadastro = [
+        { id: 'cli-1', nome: 'Cliente Exemplo Um', documento: '123.456.789-09', email: 'um@exemplo.com' },
+        { id: 'cli-2', nome: 'Cliente Ficticio da Silva', documento: '', email: 'outro@exemplo.com' },
+        { id: 'cli-3', nome: 'Homônimo', documento: '', email: '' },
+        { id: 'cli-4', nome: 'Homônimo', documento: '', email: '' },
+      ];
+      const q = u.searchParams;
+      const pessoas = cadastro.filter((p) =>
+        (q.get('documentos') && p.documento.replace(/\D/g, '') === q.get('documentos'))
+        || (q.get('emails') && p.email === q.get('emails'))
+        || (q.get('nomes') && p.nome.includes(q.get('nomes')))
+        || (q.get('busca') && p.nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q.get('busca'))));
       return new Response(JSON.stringify({ items: pessoas, totalItems: pessoas.length }), { status: 200 });
     }
     if (u.pathname === '/v1/venda/proximo-numero') return new Response('4512', { status: 200 });
@@ -72,7 +85,7 @@ test('cliente não cadastrado vira problema e nada é enviado', async () => {
   const antes = chamadas.length;
   const os2 = await aprovarEEnviar('vinhedo:1002');
   assert.equal(os2.status, 'com_erro');
-  assert.match(os2.problemas[0], /não está cadastrado/);
+  assert.match(os2.problemas[0], /Nenhum cliente com CPF\/CNPJ/);
   assert.ok(!chamadas.slice(antes).includes('POST /v1/venda'));
 });
 
@@ -96,4 +109,16 @@ test('recusa do Conta Azul (4xx) deixa corrigir; queda (5xx) trava até conferir
 
   executarAcao('vinhedo:2002', 'reabrir');
   assert.equal(obterOs('vinhedo:2002').status, 'pendente');
+});
+
+test('acha o cliente da OS em PDF pelo nome quando o e-mail não bate', async () => {
+  const os = await lerOsDePdf(fs.readFileSync(new URL('./fixtures/os-vinhedo-ficticia.pdf', import.meta.url)));
+  assert.equal((await buscarCliente('vinhedo', os.cliente)).cliente.id, 'cli-2');
+});
+
+test('busca de cliente: por e-mail, por documento, e recusa nome repetido', async () => {
+  assert.equal((await buscarCliente('vinhedo', { email: 'UM@exemplo.com', nome: 'x' })).cliente.id, 'cli-1');
+  assert.equal((await buscarCliente('vinhedo', { documento: '12345678909' })).cliente.id, 'cli-1');
+  assert.match((await buscarCliente('vinhedo', { nome: 'Homonimo' })).problema, /Há 2 clientes/);
+  assert.match((await buscarCliente('vinhedo', { nome: 'Ninguém' })).problema, /Nenhum cliente/);
 });

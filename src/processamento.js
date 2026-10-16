@@ -5,10 +5,11 @@ import path from 'node:path';
 import { PASTA_ENTRADA, config } from './config.js';
 import { listarOs, obterOs, salvarOs, registrarHistorico } from './armazenamento.js';
 import { lerOsDeCsv } from './hts/importarCsv.js';
+import { lerOsDePdf } from './hts/lerPdf.js';
 import { carregarMapeamento } from './mapeamento.js';
 import { validarOs } from './validacao.js';
 import { montarVenda } from './contaazul/montarVenda.js';
-import { buscarClientePorDocumento, criarVenda, proximoNumeroVenda } from './contaazul/cliente.js';
+import { buscarCliente, criarVenda, proximoNumeroVenda } from './contaazul/cliente.js';
 import { normalizarFormaPagamento } from './pagamento.js';
 
 export const STATUS = {
@@ -23,16 +24,20 @@ export const STATUS = {
 // Depois de enviada, a OS não é mais sobrescrita por uma nova importação.
 const TRAVADOS = new Set(['enviando', 'venda_criada', 'nf_emitida', 'ignorada']);
 
-export function importarPastaDeEntrada() {
+// Lê a pasta "entrada": planilhas .csv (várias OS) e PDFs de OS do HTS (uma OS cada).
+export async function importarPastaDeEntrada() {
   fs.mkdirSync(PASTA_ENTRADA, { recursive: true });
-  const arquivos = fs.readdirSync(PASTA_ENTRADA).filter((a) => a.toLowerCase().endsWith('.csv'));
+  const arquivos = fs.readdirSync(PASTA_ENTRADA).filter((a) => /\.(csv|pdf)$/i.test(a));
   const resumo = { arquivos: arquivos.length, novas: 0, atualizadas: 0, jaEnviadas: 0, erros: [] };
   const processados = path.join(PASTA_ENTRADA, 'processados');
 
   for (const arquivo of arquivos) {
     const caminho = path.join(PASTA_ENTRADA, arquivo);
     try {
-      const contagem = importarOs(lerOsDeCsv(fs.readFileSync(caminho, 'utf8')), arquivo);
+      const lista = /\.pdf$/i.test(arquivo)
+        ? [await lerOsDePdf(fs.readFileSync(caminho))]
+        : lerOsDeCsv(fs.readFileSync(caminho, 'utf8'));
+      const contagem = importarOs(lista, arquivo);
       resumo.novas += contagem.novas;
       resumo.atualizadas += contagem.atualizadas;
       resumo.jaEnviadas += contagem.jaEnviadas;
@@ -85,12 +90,8 @@ export async function prepararVenda(os) {
   const problemas = validarOs(os, mapeamento);
   if (problemas.length) return { problemas };
 
-  const cliente = await buscarClientePorDocumento(os.unidade, os.cliente.documento);
-  if (!cliente) {
-    return {
-      problemas: [`Cliente ${os.cliente.nome} (${os.cliente.documento}) não está cadastrado no Conta Azul de ${os.unidade}. Cadastre e tente de novo.`],
-    };
-  }
+  const { cliente, problema } = await buscarCliente(os.unidade, os.cliente);
+  if (problema) return { problemas: [problema] };
   const c = config();
   if (!['APROVADO', 'EM_ANDAMENTO'].includes(c.situacaoVenda)) {
     throw new Error(`SITUACAO_VENDA no .env deve ser APROVADO ou EM_ANDAMENTO (está "${c.situacaoVenda}").`);
@@ -102,7 +103,7 @@ export async function prepararVenda(os) {
     situacao: c.situacaoVenda,
     formaPagamento: normalizarFormaPagamento(os.formaPagamento) || normalizarFormaPagamento(c.formaPagamentoPadrao) || '',
   });
-  return { venda };
+  return { venda, cliente };
 }
 
 export async function aprovarEEnviar(chave) {

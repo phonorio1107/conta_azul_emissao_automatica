@@ -79,14 +79,14 @@ app.get('/', (req, res) => {
      <table>
        <thead><tr><th>OS</th><th>Unidade</th><th class="esconder-celular">Fechada em</th><th>Cliente</th>
        <th class="esconder-celular">Placa</th><th class="esconder-celular">Tipo</th><th class="num">Total</th><th>Status</th></tr></thead>
-       <tbody>${linhas || '<tr><td colspan="8">Nenhuma OS aqui ainda. Coloque o CSV do HTS na pasta "entrada" e clique em Importar.</td></tr>'}</tbody>
+       <tbody>${linhas || '<tr><td colspan="8">Nenhuma OS aqui ainda. Coloque os PDFs das OS (ou uma planilha CSV) na pasta "entrada" e clique em Importar.</td></tr>'}</tbody>
      </table>`,
     req.query.aviso,
   );
 });
 
-app.post('/importar', (req, res) => {
-  const r = importarPastaDeEntrada();
+app.post('/importar', async (req, res) => {
+  const r = await importarPastaDeEntrada();
   const partes = [
     `${r.arquivos} arquivo(s) lido(s): ${r.novas} OS nova(s), ${r.atualizadas} atualizada(s), ${r.jaEnviadas} já enviada(s) (ignoradas).`,
     ...r.erros,
@@ -135,13 +135,13 @@ app.get('/os/:chave', (req, res) => {
     `OS ${os.numero}`,
     `<p><a href="/">← voltar</a></p>
      <h1>OS ${esc(os.numero)} · ${esc(UNIDADES[os.unidade] ?? os.unidade)} ${etiqueta(os.status)}</h1>
-     <p><b>Cliente:</b> ${esc(os.cliente?.nome)} · ${esc(os.cliente?.documento)}<br>
+     <p><b>Cliente:</b> ${esc(os.cliente?.nome)}${os.cliente?.documento ? ` · ${esc(os.cliente.documento)}` : ''}${os.cliente?.email ? ` · ${esc(os.cliente.email)}` : ''}<br>
         <b>Placa:</b> ${esc(os.placa)} · <b>Fechada em:</b> ${dataBr(os.dataFechamento)} · <b>Tipo:</b> ${tipoOs(os)}
         ${os.venda?.numero ? `<br><b>Venda no Conta Azul:</b> nº ${esc(os.venda.numero)}` : ''}</p>
      ${os.problemas?.length ? `<ul class="problemas">${os.problemas.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}
      ${os.status === 'venda_criada' ? '<p class="aviso">Venda criada. Abra-a no Conta Azul, confira e clique em "Emitir nota fiscal". Depois marque aqui como "NF emitida".</p>' : ''}
      <div class="acoes">${enviar}${acoes}</div>
-     <table><thead><tr><th>Tipo</th><th>Código HTS</th><th>Descrição</th><th class="num">Qtd</th><th class="num">Unitário</th><th class="num">Desconto</th><th class="num">Total</th></tr></thead>
+     <table><thead><tr><th>Tipo</th><th>Chave do mapeamento</th><th>Descrição</th><th class="num">Qtd</th><th class="num">Unitário</th><th class="num">Desconto</th><th class="num">Total</th></tr></thead>
        <tbody>${itens}</tbody>
        <tfoot><tr><th colspan="6">Total da OS</th><th class="num">${reais(totalOs(os))}</th></tr></tfoot></table>
      <h3>Histórico</h3><ul>${historico}</ul>`,
@@ -153,14 +153,20 @@ app.get('/os/:chave/previa', async (req, res) => {
   const os = obterOs(req.params.chave);
   if (!os) return voltar(res, '/', 'OS não encontrada.');
   try {
-    const { venda, problemas } = await prepararVenda(os);
+    const { venda, cliente, problemas } = await prepararVenda(os);
     responder(
       res,
       `Prévia OS ${os.numero}`,
       `<p><a href="${rotaOs(os.chave)}">← voltar para a OS</a></p>
        <h1>O que seria enviado ao Conta Azul (OS ${esc(os.numero)})</h1>
-       ${problemas ? `<ul class="problemas">${problemas.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>` : `<pre>${esc(JSON.stringify(venda, null, 2))}</pre>`}
-       <p>Nada foi criado no Conta Azul. Esta tela só consulta o cadastro do cliente.</p>`,
+       ${
+         problemas
+           ? `<ul class="problemas">${problemas.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>`
+           : `<p><b>Cliente encontrado no Conta Azul:</b> ${esc(cliente.nome)} ${cliente.documento ? `· ${esc(cliente.documento)}` : ''}${cliente.email ? ` · ${esc(cliente.email)}` : ''}</p>
+              <p><b>Número da venda:</b> ${esc(venda.numero)} (o próximo livre agora; pode mudar até o envio)</p>
+              <pre>${esc(JSON.stringify(venda, null, 2))}</pre>`
+       }
+       <p>Nada foi criado no Conta Azul. Esta tela só consulta o cadastro do cliente e o próximo número de venda.</p>`,
     );
   } catch (erro) {
     voltar(res, rotaOs(os.chave), erro.message);
