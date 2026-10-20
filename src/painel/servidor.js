@@ -15,6 +15,7 @@ import { obterCatalogo, buscarNoCatalogo } from '../catalogo.js';
 import { ORIGENS, TIPOS, cadastrarProduto, preferencias, proximoSku } from '../produtoNovo.js';
 import { proximoSkuDaPlanilha, linhasPendentes, reenviarPendentes, descartarPendentes, planilhaConfigurada } from '../planilha.js';
 import { buscarNcm, listarUnidadesMedida } from '../contaazul/cliente.js';
+import { carregarPecas, buscarPecas, lerPecasDeCsv, importarPecas, vincularAoContaAzul, nomeCompleto, CAMPOS_PECA } from '../pecas.js';
 import { totalOs, tipoOs } from '../validacao.js';
 import { reais } from '../numeros.js';
 import { pagina, esc } from './html.js';
@@ -92,6 +93,7 @@ app.get('/', (req, res) => {
          <input id="arquivos" type="file" accept=".pdf,.csv" multiple hidden onchange="enviarArquivos(this.files)">
        </label>
        <form class="inline" method="post" action="/importar"><button class="secundario">Importar da pasta "entrada"</button></form>
+       <a class="botao secundario" href="/catalogo">Catálogo de peças</a>
        <a class="botao secundario" href="/produtos/novo?unidade=vinhedo">Cadastrar produto</a>
        ${pendentesMapa ? `<a class="botao secundario" href="/mapeamento">Mapear serviços (${pendentesMapa} pendente${pendentesMapa > 1 ? 's' : ''})</a>` : ''}
      </div>
@@ -148,7 +150,14 @@ app.get('/os/:chave', async (req, res) => {
     if (!unidadeAutorizada(os.unidade)) avisoBusca = 'Conecte a unidade ao Conta Azul para buscar produtos.';
     else {
       try {
-        resultados = buscarNoCatalogo(await obterCatalogo(os.unidade), 'produto', termo);
+        const catalogoCA = await obterCatalogo(os.unidade);
+        const saldoPorId = new Map(catalogoCA.itens.map((i) => [i.id, i.saldo]));
+        // Com o catálogo de peças do painel, busca também por cód. fabricante, equivalência etc.
+        resultados = carregarPecas(os.unidade).length
+          ? buscarPecas(os.unidade, termo, { limite: 30, soVinculadas: true }).map((p) => ({
+              id: p.idContaAzul, codigo: p.sku, nome: nomeCompleto(p), saldo: saldoPorId.get(p.idContaAzul), endereco: p.endereco,
+            }))
+          : buscarNoCatalogo(catalogoCA, 'produto', termo);
       } catch (erro) {
         avisoBusca = `Não consegui consultar o Conta Azul: ${erro.message}`;
       }
@@ -188,7 +197,7 @@ app.get('/os/:chave', async (req, res) => {
     const item = os.itens[i];
     const opcoes = resultados
       .map(
-        (p) => `<tr><td><b>${esc(p.codigo)}</b></td><td>${esc(p.nome)}</td><td class="num">${p.saldo ?? '—'}</td>
+        (p) => `<tr><td><b>${esc(p.codigo)}</b></td><td>${esc(p.nome)}${p.endereco ? ` <small>· end. ${esc(p.endereco)}</small>` : ''}</td><td class="num">${p.saldo ?? '—'}</td>
           <td><form class="inline" method="post" action="${rotaOs(os.chave)}/item/${i}/escolher">
             <input type="hidden" name="id" value="${esc(p.id)}">
             <button>Usar</button>
@@ -284,7 +293,10 @@ app.post('/os/:chave/item/:i/escolher', (req, res) => {
   const chave = req.params.chave;
   try {
     const os = obterOs(chave);
-    const produto = lerJson(`catalogo-${os?.unidade}.json`, { itens: [] }).itens.find((p) => p.id === req.body.id);
+    const peca = carregarPecas(os?.unidade).find((p) => p.idContaAzul === req.body.id);
+    const produto = peca
+      ? { id: peca.idContaAzul, codigo: peca.sku, nome: nomeCompleto(peca) }
+      : lerJson(`catalogo-${os?.unidade}.json`, { itens: [] }).itens.find((p) => p.id === req.body.id);
     if (!produto) throw new Error('Produto não encontrado na lista do Conta Azul. Atualize a lista e busque de novo.');
     escolherProduto(chave, Number(req.params.i), produto, { sempre: req.body.sempre === '1' });
     voltar(res, `${rotaOs(chave)}#item-${req.params.i}`, req.body.sempre === '1' ? 'Produto escolhido e guardado para as próximas OS.' : 'Produto escolhido.');
@@ -428,6 +440,93 @@ function nomeNoCatalogo(unidade, id) {
   return lerJson(`catalogo-${unidade}.json`, { itens: [] }).itens.find((c) => c.id === id)?.nome ?? '';
 }
 
+// ---- Catálogo de peças (substitui a planilha de SKUs) ----
+
+app.get('/catalogo', (req, res) => {
+  const unidade = UNIDADES[req.query.unidade] ? req.query.unidade : 'vinhedo';
+  const termo = String(req.query.q ?? '');
+  const todas = carregarPecas(unidade);
+  const semVinculo = todas.filter((p) => !p.idContaAzul);
+  const lista = buscarPecas(unidade, termo, { limite: 100 });
+  const linhas = lista
+    .map(
+      (p) => `<tr>${CAMPOS_PECA.map(([campo]) => `<td>${esc(p[campo])}</td>`).join('')}
+        <td>${esc(nomeCompleto(p))}</td><td>${p.idContaAzul ? '✔' : '<span class="problema">não achado</span>'}</td></tr>`,
+    )
+    .join('');
+
+  responder(
+    res,
+    'Catálogo de peças',
+    `<p><a href="/">← voltar</a></p>
+     <h1>Catálogo de peças · ${esc(UNIDADES[unidade])}</h1>
+     <div class="cartoes">
+       <div class="cartao">Peças<b>${todas.length}</b></div>
+       <div class="cartao">Ligadas ao Conta Azul<b>${todas.length - semVinculo.length}</b></div>
+       ${semVinculo.length ? `<div class="cartao">Sem produto no Conta Azul<b>${semVinculo.length}</b></div>` : ''}
+     </div>
+     ${
+       semVinculo.length
+         ? `<p class="problema">SKUs sem produto correspondente no Conta Azul: ${semVinculo.slice(0, 30).map((p) => esc(p.sku)).join(', ')}${semVinculo.length > 30 ? '…' : ''}.
+            Confira se o SKU está igual no cadastro do Conta Azul e clique em "Ligar ao Conta Azul de novo".</p>`
+         : ''
+     }
+     <div class="acoes">
+       <a class="botao" href="/produtos/novo?unidade=${unidade}">Cadastrar produto novo</a>
+       <label class="botao secundario">Importar planilha (CSV)
+         <input type="file" accept=".csv" hidden onchange="importar(this.files[0])">
+       </label>
+       <form class="inline" method="post" action="/catalogo/vincular"><input type="hidden" name="unidade" value="${unidade}"><button class="secundario">Ligar ao Conta Azul de novo</button></form>
+     </div>
+     <form method="get" action="/catalogo" class="busca">
+       <input type="hidden" name="unidade" value="${unidade}">
+       <input name="q" value="${esc(termo)}" placeholder="SKU, cód. fabricante, marca, descrição, equivalência..." size="45">
+       <button class="secundario">Buscar</button>
+     </form>
+     <p><small>${termo ? `${lista.length} resultado(s)${lista.length === 100 ? ' (mostrando os 100 primeiros)' : ''}.` : 'Últimas peças do catálogo.'}</small></p>
+     <div style="overflow-x:auto"><table>
+       <thead><tr>${CAMPOS_PECA.map(([, rotulo]) => `<th>${rotulo}</th>`).join('')}<th>Nome completo</th><th>Conta Azul</th></tr></thead>
+       <tbody>${linhas || '<tr><td colspan="11">Nenhuma peça ainda. Use "Importar planilha (CSV)".</td></tr>'}</tbody>
+     </table></div>
+     <script>
+       async function importar(arquivo) {
+         if (!arquivo) return;
+         const r = await fetch('/catalogo/importar?unidade=${unidade}', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: arquivo });
+         const texto = await r.text();
+         location.href = '/catalogo?unidade=${unidade}&aviso=' + encodeURIComponent(texto);
+       }
+     </script>`,
+    req.query.aviso,
+  );
+});
+
+app.post('/catalogo/importar', express.raw({ type: 'application/octet-stream', limit: '25mb' }), async (req, res) => {
+  const unidade = UNIDADES[req.query.unidade] ? req.query.unidade : 'vinhedo';
+  try {
+    const r = importarPecas(unidade, lerPecasDeCsv(req.body.toString('utf8')));
+    let texto = `Planilha importada: ${r.incluidas} peça(s) nova(s), ${r.atualizadas} atualizada(s). Total: ${r.total}.`;
+    if (unidadeAutorizada(unidade)) {
+      const v = vincularAoContaAzul(unidade, await obterCatalogo(unidade, { atualizar: true }));
+      texto += `\n${v.vinculadas} ligada(s) ao produto do Conta Azul${v.semVinculo.length ? `; ${v.semVinculo.length} sem produto correspondente` : ''}.`;
+    } else {
+      texto += `\nConecte ${UNIDADES[unidade]} ao Conta Azul e clique em "Ligar ao Conta Azul de novo".`;
+    }
+    res.send(texto);
+  } catch (erro) {
+    res.status(400).send(`Não consegui importar: ${erro.message}`);
+  }
+});
+
+app.post('/catalogo/vincular', async (req, res) => {
+  const unidade = UNIDADES[req.body.unidade] ? req.body.unidade : 'vinhedo';
+  try {
+    const v = vincularAoContaAzul(unidade, await obterCatalogo(unidade, { atualizar: true }));
+    voltar(res, `/catalogo?unidade=${unidade}`, `${v.vinculadas} peça(s) ligada(s) ao Conta Azul${v.semVinculo.length ? `; ${v.semVinculo.length} sem produto correspondente` : ''}.`);
+  } catch (erro) {
+    voltar(res, `/catalogo?unidade=${unidade}`, erro.message);
+  }
+});
+
 // ---- Cadastro de produto novo (Conta Azul + planilha) ----
 
 app.get('/produtos/novo', async (req, res) => {
@@ -440,12 +539,14 @@ app.get('/produtos/novo', async (req, res) => {
     sku = daPlanilha.sku;
     origemSku = 'SKU sugerido pela planilha (próximo da sequência).';
   } else {
+    const pecas = carregarPecas(unidade);
     try {
-      sku = proximoSku((await obterCatalogo(unidade)).itens.map((i) => i.codigo));
+      sku = proximoSku([...pecas.map((p) => p.sku), ...(await obterCatalogo(unidade)).itens.map((i) => i.codigo)]);
     } catch {
-      // sem sugestão: o usuário digita
+      sku = proximoSku(pecas.map((p) => p.sku));
     }
-    origemSku = planilhaConfigurada()
+    if (pecas.length && !planilhaConfigurada()) origemSku = 'SKU sugerido pelo catálogo de peças (próximo depois do último). Confira antes de criar.';
+    else origemSku = planilhaConfigurada()
       ? `⚠ A planilha não respondeu (${daPlanilha.erro}). ${sku ? 'O SKU abaixo veio do Conta Azul: confira antes de usar.' : 'Digite o SKU.'}`
       : sku ? 'SKU sugerido a partir dos produtos do Conta Azul (próximo da sequência). Confira antes de criar.' : '';
   }
@@ -476,7 +577,7 @@ app.post('/produtos/novo', async (req, res) => {
       escolherProduto(d.os, Number(d.item), produto);
       return voltar(res, `${rotaOs(d.os)}#item-${d.item}`, `${aviso}\nJá escolhido nesta OS.`);
     }
-    voltar(res, '/', aviso);
+    voltar(res, `/catalogo?unidade=${unidade}&q=${encodeURIComponent(produto.codigo)}`, aviso);
   } catch (erro) {
     formularioProduto(res, unidade, d, [erro.message]);
   }

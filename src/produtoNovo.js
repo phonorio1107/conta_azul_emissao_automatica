@@ -4,6 +4,7 @@
 import { lerJson, gravarJson } from './armazenamento.js';
 import { criarProduto, produtoPorSku } from './contaazul/cliente.js';
 import { enviarParaPlanilha, planilhaConfigurada } from './planilha.js';
+import { adicionarPeca, carregarPecas } from './pecas.js';
 
 // Códigos de origem da mercadoria (tabela do ICMS) como o Conta Azul nomeia.
 export const ORIGENS = {
@@ -89,6 +90,9 @@ export async function cadastrarProduto(unidade, d) {
   if (problemas.length) return { problemas };
 
   const sku = d.sku.trim().toUpperCase();
+  if (carregarPecas(unidade).some((p) => p.sku === sku)) {
+    return { problemas: [`O SKU ${sku} já está no catálogo de peças. Use o próximo número.`] };
+  }
   if (await produtoPorSku(unidade, sku)) {
     return { problemas: [`Já existe um produto com o SKU ${sku} no Conta Azul. Use a busca da OS para escolhê-lo.`] };
   }
@@ -101,6 +105,9 @@ export async function cadastrarProduto(unidade, d) {
   gravarJson('preferencias-produto.json', { ncmId: d.ncmId, ncmTexto: d.ncmTexto, unidadeId: d.unidadeId, origem: d.origem, tipo: d.tipo });
   const catalogo = lerJson(`catalogo-${unidade}.json`, null);
   if (catalogo) gravarJson(`catalogo-${unidade}.json`, { ...catalogo, itens: [...catalogo.itens, produto] });
+
+  // Guarda também no catálogo de peças do painel (que substitui a planilha).
+  adicionarPeca(unidade, { ...d, sku, idContaAzul: produto.id });
 
   // Planilha é opcional: sem PLANILHA_URL/PLANILHA_TOKEN no .env, cria só no Conta Azul.
   if (!planilhaConfigurada()) return { produto, erroPlanilha: null, semPlanilha: true };

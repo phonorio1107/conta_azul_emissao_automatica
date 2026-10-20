@@ -112,6 +112,18 @@ O PDF traz a peça com nome genérico ("Filtro de oleo"), mas no Conta Azul cada
    O produto é criado no Conta Azul com **saldo 0**, entra na sua planilha e já fica escolhido na OS.
    A ligação com a planilha de SKUs é **opcional** e está desligada por enquanto ([como ligar depois](PLANILHA.md)).
 
+**Catálogo de peças (no lugar da planilha)**
+
+O painel guarda o seu catálogo de SKUs (SKU, endereço, cód. fabricante, marca, descrição, montadora, modelo,
+grandeza, equivalência). Com ele, a busca da OS acha a peça também pelo **cód. fabricante** e pela **equivalência**.
+
+1. **Uma vez só:** na planilha do Google, abra a aba **Inventário** → **Arquivo → Fazer download → Valores separados por vírgula (.csv)**.
+2. No painel: **Catálogo de peças → Importar planilha (CSV)** e escolha o arquivo baixado.
+3. O painel liga cada SKU ao produto que já existe no Conta Azul (pelo SKU) e mostra quantos ligou.
+   Se algum SKU aparecer como "não achado", confira se o SKU está igual no cadastro do Conta Azul.
+4. Daqui para frente, use **Cadastrar produto novo**: ele cria no Conta Azul e no catálogo do painel,
+   com o próximo SKU da sequência já sugerido.
+
 **Serviços – mapeados uma vez só**
 
 1. Clique em **Mapear serviços** na tela inicial.

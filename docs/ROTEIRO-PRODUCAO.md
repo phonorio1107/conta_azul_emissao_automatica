@@ -15,7 +15,7 @@ Na ordem. Cada etapa só começa quando a anterior estiver ✔.
 - [ ] Tentar emitir a NF a partir dela (na conta de teste pode não ser possível; anotar o que acontecer)
 - [ ] Voltar `ENVIO_REAL=false`
 
-- [ ] (Opcional, depois) Ligar a planilha de SKUs ao painel ([docs/PLANILHA.md](PLANILHA.md))
+- [ ] (Na fase real) Importar a planilha de SKUs no **Catálogo de peças** do painel (CSV da aba Inventário)
 
 ## Etapa 2 – Combinar as regras com a Sol
 
