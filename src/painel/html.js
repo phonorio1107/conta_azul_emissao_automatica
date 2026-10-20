@@ -45,6 +45,11 @@ export function pagina(titulo, corpo, { envioReal, aviso } = {}) {
   form.inline { display:inline; }
   .acoes { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
   .filtros a { margin-right:10px; }
+  button.link { background:none; color:#1d4ed8; border:0; padding:0; text-decoration:underline; font-weight:400; }
+  .problema { color:#8a1d1d; }
+  form.busca { display:flex; gap:6px; flex-wrap:wrap; }
+  table.resultados { margin:4px 0; background:#fafafa; }
+  details summary { cursor:pointer; color:#1d4ed8; font-size:13px; }
   pre { background:var(--cinza); padding:12px; overflow:auto; border-radius:6px; }
   ul.problemas { color:#8a1d1d; }
   .cartoes { display:flex; gap:12px; flex-wrap:wrap; }

@@ -32,10 +32,18 @@ São duas fases:
    npm install
    ```
 
-## 2. Criar o arquivo `.env`
+## 2. Configurar as credenciais
 
-1. Na pasta do projeto, copie o arquivo `.env.example` e renomeie a cópia para `.env`.
-2. Abra o `.env` com o Bloco de Notas e preencha só estas duas linhas, com o que você guardou do portal:
+> **Onde ficam seus dados:** o `.env`, a conexão com o Conta Azul, as OS e o mapeamento ficam em
+> **`C:\Users\<seu usuário>\nf-conta-azul`**, fora da pasta do projeto. Por isso, atualizar o
+> projeto (baixar o ZIP de novo) **não apaga nada**.
+
+1. Na pasta do projeto, rode:
+   ```
+   npm run configurar
+   ```
+   Abre o `.env` no Bloco de Notas.
+2. Preencha só estas duas linhas, com o que você guardou do portal, e salve (Ctrl+S):
    ```
    CONTAAZUL_CLIENT_ID=...
    CONTAAZUL_CLIENT_SECRET=...
@@ -80,16 +88,25 @@ Deve aparecer "Conexão OK" com o nome e o CNPJ da empresa da conta de teste.
 2. Abra **http://localhost:3000** no navegador.
 3. Clique em **Enviar PDFs das OS** e escolha o PDF (ou os PDFs) baixado do HTS.
 
-## 6. Mapear os itens (uma vez por item)
+## 6. Ligar os itens da OS ao Conta Azul
 
-Na primeira vez, as OS aparecem **Com problema**, porque o sistema ainda não sabe a que produto ou serviço do Conta Azul cada item corresponde.
+**Peças (produtos) – escolhidas em cada OS, pelo SKU**
 
-1. Clique em **Mapear itens**.
-2. Para cada item, escolha na lista o produto ou serviço do Conta Azul. Quando o nome é igual, ele já vem selecionado.
-3. **Fator:** deixe `1`, a não ser que a unidade seja diferente (por exemplo, a OS em "pacote" e o Conta Azul em "unidade").
-4. Clique em **Salvar mapeamento**. As OS são conferidas de novo na hora.
+O PDF traz a peça com nome genérico ("Filtro de oleo"), mas no Conta Azul cada peça é um SKU. Então:
 
-Cadastrou um produto ou serviço novo no Conta Azul? Use **Atualizar a lista do Conta Azul**, no fim da mesma tela.
+1. Abra a OS no painel. Na coluna **No Conta Azul**, cada peça tem uma caixa de busca.
+2. Digite o que o orçamentista anotou no HTS (nome ou SKU, pode ser só um pedaço) e clique em **Buscar**.
+3. Na lista (SKU, nome e saldo), clique em:
+   - **Usar**: vale só para esta OS;
+   - **Usar sempre**: vale também para as próximas OS com essa mesma descrição (bom para peças que são sempre o mesmo SKU, como o óleo da casa).
+4. Errou? Clique em **trocar** e busque de novo.
+
+**Serviços – mapeados uma vez só**
+
+1. Clique em **Mapear serviços** na tela inicial.
+2. Escolha o serviço do Conta Azul correspondente (quando o nome é igual, já vem selecionado) e clique em **Salvar mapeamento**.
+
+Cadastrou um produto ou serviço novo no Conta Azul? Use **Atualizar a lista do Conta Azul** (na tela de mapeamento ou quando a busca não achar nada).
 
 ## 7. Conferir em simulação
 
@@ -98,7 +115,7 @@ Cadastrou um produto ou serviço novo no Conta Azul? Use **Atualizar a lista do 
 
 ## 8. Criar uma venda de verdade na conta de teste
 
-1. No `.env`, troque `ENVIO_REAL=false` para `ENVIO_REAL=true`.
+1. Rode `npm run configurar` e, no `.env`, troque `ENVIO_REAL=false` para `ENVIO_REAL=true`.
 2. Feche o painel (Ctrl+C no Prompt) e rode `npm run painel` de novo.
 3. Clique em **Aprovar e criar venda** numa OS.
 4. Entre no Conta Azul com o **login da conta de teste** e confira a venda. Experimente emitir a NF por ela.
@@ -112,14 +129,14 @@ Como é a conta de teste, pode errar à vontade.
 Só depois que a fase 1 estiver redonda.
 
 1. No portal, crie uma aplicação de **Produção**. Cadastre a URL de redirecionamento `http://localhost:3000/oauth/retorno`.
-2. No `.env`:
+2. Rode `npm run configurar` e, no `.env`:
    - troque o Client ID e o Client Secret pelos do app de produção;
    - troque `CONTAAZUL_REDIRECT_URI=http://localhost:3000/oauth/retorno`;
    - **volte para `ENVIO_REAL=false`**.
-3. Apague o arquivo `dados/tokens.json` (é a conexão com a conta de teste).
+3. Em `C:\Users\<seu usuário>\nf-conta-azul\dados`, apague **tudo** (eram os dados da conta de teste).
 4. Rode `npm run painel`, abra http://localhost:3000 e clique em **Conectar Vinhedo** (login de Vinhedo) e em **Conectar Barueri** (login de Barueri).
 5. Rode `npm run testar-conexao -- vinhedo` e `-- barueri` e confira se cada um mostra o **CNPJ certo**.
-6. Apague `dados/mapeamento.csv` e `dados/catalogo-*.json` (eram da conta de teste) e refaça o mapeamento pela tela **Mapear itens**.
+6. Faça o mapeamento real: **Mapear serviços** uma vez, e as peças em cada OS (com **Usar sempre** para as que se repetem).
 7. Simule por alguns dias. Depois, `ENVIO_REAL=true`.
 
 ---
@@ -161,7 +178,7 @@ Só depois que a fase 1 estiver redonda.
 ## Dia a dia (depois da fase 2)
 
 1. Baixar do HTS o PDF das OS faturadas e, no painel, clicar em **Enviar PDFs das OS**.
-2. Resolver as OS **Com problema**: item novo vai em **Mapear itens**; cliente não encontrado se cadastra no Conta Azul.
+2. Resolver as OS **Com problema**: escolher o SKU das peças na própria OS; serviço novo vai em **Mapear serviços**; cliente não encontrado se cadastra no Conta Azul.
 3. Em cada OS **Pronta para aprovar**, conferir e clicar em **Aprovar e criar venda**.
 4. No Conta Azul, abrir a venda e clicar em **Emitir nota fiscal**.
 5. Voltar ao painel e marcar **NF emitida**.

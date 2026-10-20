@@ -1,4 +1,6 @@
 // Tabela de tradução: código do item no HTS -> id do produto/serviço no Conta Azul.
+// Serviços sempre passam por aqui. Produtos normalmente são escolhidos OS por OS
+// (o SKU depende do carro); só entram aqui os marcados como "sempre usar este".
 // Fica em dados/mapeamento.csv (modelo em exemplos/mapeamento-exemplo.csv).
 // Colunas: unidade;tipo;codigo_hts;id_conta_azul;fator_conversao;observacao
 //
@@ -33,6 +35,7 @@ export function carregarMapeamento(conteudo) {
     mapa.set(chaveMapa(l.unidade, l.tipo, l.codigo_hts), {
       idContaAzul: l.id_conta_azul,
       fator: Number.isFinite(fator) && fator > 0 ? fator : 1,
+      nome: l.observacao ?? '',
     });
   }
   return mapa;

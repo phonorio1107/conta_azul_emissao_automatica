@@ -5,11 +5,12 @@ Na ordem. Cada etapa só começa quando a anterior estiver ✔.
 ## Etapa 1 – Primeira venda na conta de teste
 
 - [ ] Atualizar o projeto no computador (baixar o ZIP e extrair por cima, "Substituir")
-- [ ] Abrir o painel e conferir se aparecem os botões **Enviar PDFs das OS** e **Mapear itens**
-- [ ] **Mapear itens**: ligar os itens da OS a produtos/serviços da conta de teste
+- [ ] `npm install` e `npm run configurar` (conferir se o Client ID e o Secret estão lá)
+- [ ] Abrir o painel e conferir se aparecem os botões **Enviar PDFs das OS** e **Mapear serviços**
+- [ ] **Mapear serviços** e, na OS, buscar e escolher o SKU de cada peça (conta de teste)
 - [ ] Cadastrar na conta de teste um cliente com o **mesmo nome** do cliente da OS
 - [ ] **Ver o que seria enviado**: conferir cliente, itens, valores e total
-- [ ] No `.env`, `ENVIO_REAL=true`, reiniciar o painel e clicar em **Aprovar e criar venda**
+- [ ] `npm run configurar` → `ENVIO_REAL=true`, reiniciar o painel e clicar em **Aprovar e criar venda**
 - [ ] Conferir a venda no Conta Azul da conta de teste (cliente, itens, valores, total, pagamento)
 - [ ] Tentar emitir a NF a partir dela (na conta de teste pode não ser possível; anotar o que acontecer)
 - [ ] Voltar `ENVIO_REAL=false`
@@ -40,15 +41,15 @@ Na ordem. Cada etapa só começa quando a anterior estiver ✔.
 ## Etapa 4 – Conectar Vinhedo e Barueri
 
 - [ ] Confirmar: Vinhedo e Barueri são **contas separadas** no Conta Azul (logins/CNPJs diferentes)?
-- [ ] No `.env`: Client ID e Secret de produção, `CONTAAZUL_REDIRECT_URI=http://localhost:3000/oauth/retorno`, `ENVIO_REAL=false`
-- [ ] Apagar da pasta `dados`: `tokens.json`, `mapeamento.csv`, `catalogo-*.json` e `os.json` (eram da conta de teste)
+- [ ] `npm run configurar`: Client ID e Secret de produção, `CONTAAZUL_REDIRECT_URI=http://localhost:3000/oauth/retorno`, `ENVIO_REAL=false`
+- [ ] Apagar tudo em `C:\Users\<seu usuário>\nf-conta-azul\dados` (eram os dados da conta de teste)
 - [ ] Painel → **Conectar Vinhedo** (login de Vinhedo) e **Conectar Barueri** (login de Barueri)
 - [ ] `npm run testar-conexao -- vinhedo` e `-- barueri`: conferir **razão social e CNPJ** de cada uma
 
 ## Etapa 5 – Mapeamento real
 
 - [ ] Enviar ao painel os PDFs das OS faturadas de alguns dias (Vinhedo e Barueri)
-- [ ] **Mapear itens** com os produtos e serviços reais
+- [ ] **Mapear serviços** com os serviços reais; nas OS, escolher o SKU das peças (**Usar sempre** nas que se repetem)
 - [ ] Mandar ao Claude **um PDF de OS de Barueri** (dados do cliente tapados) para confirmar o layout
 
 ## Etapa 6 – Simulação com OS reais (alguns dias)
@@ -58,6 +59,6 @@ Na ordem. Cada etapa só começa quando a anterior estiver ✔.
 
 ## Etapa 7 – Ligar
 
-- [ ] `ENVIO_REAL=true`
+- [ ] `npm run configurar` → `ENVIO_REAL=true`
 - [ ] Primeira venda real de valor baixo: conferir no Conta Azul antes de emitir a NF
 - [ ] A partir daí, o dia a dia do `docs/GUIA.md`

@@ -30,8 +30,12 @@ export function validarOs(os, mapeamento) {
     if (!(item.quantidade > 0)) problemas.push(`${qual}: quantidade inválida.`);
     if (!(item.valorUnitario >= 0)) problemas.push(`${qual}: valor unitário inválido.`);
     if (!(item.desconto >= 0)) problemas.push(`${qual}: desconto inválido.`);
-    if (!mapeamento.has(chaveMapa(os.unidade, item.tipo, item.codigoHts))) {
-      problemas.push(`${qual}: sem correspondente no Conta Azul. Inclua no dados/mapeamento.csv.`);
+    const mapeado = mapeamento.has(chaveMapa(os.unidade, item.tipo, item.codigoHts));
+    if (item.tipo === 'produto' && !item.escolha?.id && !mapeado) {
+      problemas.push(`${qual}: escolha o produto (SKU) do Conta Azul na tabela abaixo.`);
+    }
+    if (item.tipo === 'servico' && !mapeado) {
+      problemas.push(`${qual}: serviço sem correspondente no Conta Azul. Use "Mapear serviços".`);
     }
   });
 

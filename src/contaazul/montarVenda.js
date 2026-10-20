@@ -16,7 +16,10 @@ export function montarVenda(os, { idCliente, numero, mapeamento, situacao, forma
     data_venda: os.dataFechamento,
     observacoes: `OS ${os.numero} (HTS) – placa ${os.placa || 'não informada'}`,
     itens: os.itens.map((item) => {
-      const mapa = mapeamento.get(chaveMapa(os.unidade, item.tipo, item.codigoHts));
+      // Produto escolhido nesta OS tem prioridade sobre o mapeamento fixo.
+      const mapa = item.escolha?.id
+        ? { idContaAzul: item.escolha.id, fator: 1 }
+        : mapeamento.get(chaveMapa(os.unidade, item.tipo, item.codigoHts));
       const quantidade = arredondar(item.quantidade * mapa.fator, 4);
       return {
         id: mapa.idContaAzul,

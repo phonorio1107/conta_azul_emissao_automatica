@@ -8,10 +8,10 @@ import { listarOs, obterOs, lerJson } from '../armazenamento.js';
 import { linkDeAutorizacao, concluirAutorizacao, unidadeAutorizada } from '../contaazul/auth.js';
 import {
   STATUS, ACOES, importarPastaDeEntrada, revalidarPendentes, prepararVenda, aprovarEEnviar, executarAcao,
-  itensSemMapeamento,
+  itensSemMapeamento, escolherProduto, limparEscolha,
 } from '../processamento.js';
-import { adicionarMapeamentos, chaveMapa } from '../mapeamento.js';
-import { obterCatalogo } from '../catalogo.js';
+import { adicionarMapeamentos, chaveMapa, carregarMapeamento } from '../mapeamento.js';
+import { obterCatalogo, buscarNoCatalogo } from '../catalogo.js';
 import { totalOs, tipoOs } from '../validacao.js';
 import { reais } from '../numeros.js';
 import { pagina, esc } from './html.js';
@@ -30,7 +30,7 @@ function responder(res, titulo, corpo, aviso) {
 function voltar(res, destino, aviso) {
   const url = new URL(destino, 'http://x');
   if (aviso) url.searchParams.set('aviso', aviso);
-  res.redirect(url.pathname + url.search);
+  res.redirect(url.pathname + url.search + url.hash);
 }
 
 app.get('/', (req, res) => {
@@ -82,7 +82,7 @@ app.get('/', (req, res) => {
          <input id="arquivos" type="file" accept=".pdf,.csv" multiple hidden onchange="enviarArquivos(this.files)">
        </label>
        <form class="inline" method="post" action="/importar"><button class="secundario">Importar da pasta "entrada"</button></form>
-       ${pendentesMapa ? `<a class="botao secundario" href="/mapeamento">Mapear itens (${pendentesMapa} pendente${pendentesMapa > 1 ? 's' : ''})</a>` : ''}
+       ${pendentesMapa ? `<a class="botao secundario" href="/mapeamento">Mapear serviços (${pendentesMapa} pendente${pendentesMapa > 1 ? 's' : ''})</a>` : ''}
      </div>
      <script>
        async function enviarArquivos(arquivos) {
@@ -121,15 +121,79 @@ app.post('/revalidar', (req, res) => {
   voltar(res, '/', 'OS ainda não enviadas foram conferidas de novo.');
 });
 
-app.get('/os/:chave', (req, res) => {
+app.get('/os/:chave', async (req, res) => {
   const os = obterOs(req.params.chave);
   if (!os) return voltar(res, '/', 'OS não encontrada.');
 
+  const travada = ['enviando', 'venda_criada', 'nf_emitida'].includes(os.status);
+  const mapeamento = carregarMapeamento();
+  const buscandoItem = req.query.item !== undefined ? Number(req.query.item) : null;
+  const termo = String(req.query.q ?? '');
+
+  // Resultado da busca de produto (só quando o usuário pesquisou um item).
+  let resultados = null;
+  let avisoBusca = '';
+  if (buscandoItem !== null && termo.trim()) {
+    if (!unidadeAutorizada(os.unidade)) avisoBusca = 'Conecte a unidade ao Conta Azul para buscar produtos.';
+    else {
+      try {
+        resultados = buscarNoCatalogo(await obterCatalogo(os.unidade), 'produto', termo);
+      } catch (erro) {
+        avisoBusca = `Não consegui consultar o Conta Azul: ${erro.message}`;
+      }
+    }
+  }
+
+  const celulaContaAzul = (item, i) => {
+    const fixo = mapeamento.get(chaveMapa(os.unidade, item.tipo, item.codigoHts));
+    if (item.tipo === 'servico') {
+      return fixo ? `${esc(fixo.nome || 'mapeado')}` : '<span class="problema">falta mapear</span> · <a href="/mapeamento">Mapear serviços</a>';
+    }
+    if (item.escolha?.id) {
+      const trocar = travada
+        ? ''
+        : ` <form class="inline" method="post" action="${rotaOs(os.chave)}/item/${i}/limpar"><button class="link">trocar</button></form>`;
+      return `<b>${esc(item.escolha.codigo)}</b> ${esc(item.escolha.nome)}${trocar}`;
+    }
+    const busca = travada
+      ? ''
+      : `<form method="get" action="${rotaOs(os.chave)}#item-${i}" class="busca">
+           <input type="hidden" name="item" value="${i}">
+           <input name="q" value="${buscandoItem === i ? esc(termo) : ''}" placeholder="nome ou SKU anotado pelo orçamentista" size="28">
+           <button class="secundario">Buscar</button>
+         </form>`;
+    return fixo ? `${esc(fixo.nome || 'mapeado')} <small>(sempre)</small>${busca ? `<details><summary>usar outro</summary>${busca}</details>` : ''}` : busca;
+  };
+
+  const linhaResultados = (i) => {
+    if (buscandoItem !== i || !termo.trim()) return '';
+    if (avisoBusca) return `<tr><td colspan="6" class="problema">${esc(avisoBusca)}</td></tr>`;
+    if (!resultados.length) {
+      return `<tr><td colspan="6">Nada encontrado para "${esc(termo)}". Tente outra palavra ou só parte do SKU.
+        Se o produto foi cadastrado agora no Conta Azul:
+        <form class="inline" method="post" action="/mapeamento/atualizar-catalogo"><input type="hidden" name="voltar" value="${esc(`${rotaOs(os.chave)}?item=${i}&q=${encodeURIComponent(termo)}#item-${i}`)}"><button class="link">atualizar a lista do Conta Azul</button></form></td></tr>`;
+    }
+    const item = os.itens[i];
+    const opcoes = resultados
+      .map(
+        (p) => `<tr><td><b>${esc(p.codigo)}</b></td><td>${esc(p.nome)}</td><td class="num">${p.saldo ?? '—'}</td>
+          <td><form class="inline" method="post" action="${rotaOs(os.chave)}/item/${i}/escolher">
+            <input type="hidden" name="id" value="${esc(p.id)}">
+            <button>Usar</button>
+            <button class="secundario" name="sempre" value="1" title="Usar este SKU sempre que a OS trouxer &quot;${esc(item.codigoHts)}&quot;">Usar sempre</button>
+          </form></td></tr>`,
+      )
+      .join('');
+    return `<tr><td colspan="6"><table class="resultados"><thead><tr><th>SKU</th><th>Produto no Conta Azul</th><th class="num">Saldo*</th><th></th></tr></thead>
+      <tbody>${opcoes}</tbody></table><small>* saldo na última atualização da lista.</small></td></tr>`;
+  };
+
   const itens = os.itens
     .map(
-      (i) => `<tr><td>${i.tipo === 'servico' ? 'Serviço' : 'Produto'}</td><td>${esc(i.codigoHts)}</td><td>${esc(i.descricao)}</td>
-       <td class="num">${i.quantidade}</td><td class="num">${reais(i.valorUnitario)}</td><td class="num">${reais(i.desconto)}</td>
-       <td class="num">${reais(i.quantidade * i.valorUnitario - (i.desconto || 0))}</td></tr>`,
+      (item, i) => `<tr id="item-${i}"><td>${item.tipo === 'servico' ? 'Serviço' : 'Produto'}</td><td>${esc(item.descricao)}</td>
+       <td class="num">${item.quantidade}</td><td class="num">${reais(item.valorUnitario)}</td>
+       <td class="num">${reais(item.quantidade * item.valorUnitario - (item.desconto || 0))}</td>
+       <td>${celulaContaAzul(item, i)}</td></tr>${linhaResultados(i)}`,
     )
     .join('');
 
@@ -161,12 +225,11 @@ app.get('/os/:chave', (req, res) => {
         <b>Placa:</b> ${esc(os.placa)} · <b>Fechada em:</b> ${dataBr(os.dataFechamento)} · <b>Tipo:</b> ${tipoOs(os)}
         ${os.venda?.numero ? `<br><b>Venda no Conta Azul:</b> nº ${esc(os.venda.numero)}` : ''}</p>
      ${os.problemas?.length ? `<ul class="problemas">${os.problemas.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}
-     ${os.problemas?.some((p) => p.includes('sem correspondente')) ? '<p><a class="botao secundario" href="/mapeamento">Mapear os itens desta OS</a></p>' : ''}
      ${os.status === 'venda_criada' ? '<p class="aviso">Venda criada. Abra-a no Conta Azul, confira e clique em "Emitir nota fiscal". Depois marque aqui como "NF emitida".</p>' : ''}
      <div class="acoes">${enviar}${acoes}</div>
-     <table><thead><tr><th>Tipo</th><th>Chave do mapeamento</th><th>Descrição</th><th class="num">Qtd</th><th class="num">Unitário</th><th class="num">Desconto</th><th class="num">Total</th></tr></thead>
+     <table><thead><tr><th>Tipo</th><th>Item na OS</th><th class="num">Qtd</th><th class="num">Unitário</th><th class="num">Total</th><th>No Conta Azul</th></tr></thead>
        <tbody>${itens}</tbody>
-       <tfoot><tr><th colspan="6">Total da OS</th><th class="num">${reais(totalOs(os))}</th></tr></tfoot></table>
+       <tfoot><tr><th colspan="4">Total da OS</th><th class="num">${reais(totalOs(os))}</th><th></th></tr></tfoot></table>
      <h3>Histórico</h3><ul>${historico}</ul>`,
     req.query.aviso,
   );
@@ -205,6 +268,28 @@ app.post('/os/:chave/enviar', async (req, res) => {
   }
 });
 
+app.post('/os/:chave/item/:i/escolher', (req, res) => {
+  const chave = req.params.chave;
+  try {
+    const os = obterOs(chave);
+    const produto = lerJson(`catalogo-${os?.unidade}.json`, { itens: [] }).itens.find((p) => p.id === req.body.id);
+    if (!produto) throw new Error('Produto não encontrado na lista do Conta Azul. Atualize a lista e busque de novo.');
+    escolherProduto(chave, Number(req.params.i), produto, { sempre: req.body.sempre === '1' });
+    voltar(res, `${rotaOs(chave)}#item-${req.params.i}`, req.body.sempre === '1' ? 'Produto escolhido e guardado para as próximas OS.' : 'Produto escolhido.');
+  } catch (erro) {
+    voltar(res, rotaOs(chave), erro.message);
+  }
+});
+
+app.post('/os/:chave/item/:i/limpar', (req, res) => {
+  try {
+    limparEscolha(req.params.chave, Number(req.params.i));
+    voltar(res, `${rotaOs(req.params.chave)}?item=${req.params.i}#item-${req.params.i}`);
+  } catch (erro) {
+    voltar(res, rotaOs(req.params.chave), erro.message);
+  }
+});
+
 app.post('/os/:chave/acao', (req, res) => {
   try {
     executarAcao(req.params.chave, req.body.acao);
@@ -227,7 +312,7 @@ app.post('/enviar', express.raw({ type: 'application/octet-stream', limit: '25mb
 app.get('/mapeamento', async (req, res) => {
   const pendentes = itensSemMapeamento();
   if (!pendentes.length) {
-    return responder(res, 'Mapear itens', '<p><a href="/">← voltar</a></p><h1>Mapear itens</h1><p>Nenhum item pendente. Tudo mapeado.</p>', req.query.aviso);
+    return responder(res, 'Mapear serviços', '<p><a href="/">← voltar</a></p><h1>Mapear serviços</h1><p>Nenhum serviço pendente. Tudo mapeado.</p>', req.query.aviso);
   }
 
   const catalogos = {};
@@ -272,16 +357,16 @@ app.get('/mapeamento', async (req, res) => {
 
   responder(
     res,
-    'Mapear itens',
+    'Mapear serviços',
     `<p><a href="/">← voltar</a></p>
-     <h1>Mapear itens</h1>
-     <p>Para cada item das OS, escolha o produto ou serviço correspondente no Conta Azul. Isso é feito <b>uma vez só</b>:
-        da próxima vez que o item aparecer, o sistema já sabe.</p>
+     <h1>Mapear serviços</h1>
+     <p>Para cada serviço das OS, escolha o serviço correspondente no Conta Azul. Isso é feito <b>uma vez só</b>:
+        da próxima vez que ele aparecer, o sistema já sabe. (Peças são escolhidas dentro de cada OS, pelo SKU.)</p>
      ${avisos.length ? `<ul class="problemas">${avisos.map((a) => `<li>${esc(a)}</li>`).join('')}</ul>` : ''}
      <form method="post" action="/mapeamento">
        <input type="hidden" name="n" value="${pendentes.length}">
        <table>
-         <thead><tr><th>Unidade</th><th>Tipo</th><th>Item na OS</th><th>Produto/serviço no Conta Azul</th><th>Fator</th></tr></thead>
+         <thead><tr><th>Unidade</th><th>Tipo</th><th>Serviço na OS</th><th>Serviço no Conta Azul</th><th>Fator</th></tr></thead>
          <tbody>${linhas}</tbody>
        </table>
        <div class="acoes"><button>Salvar mapeamento</button></div>
@@ -320,7 +405,8 @@ app.post('/mapeamento/atualizar-catalogo', async (req, res) => {
     for (const unidade of Object.keys(UNIDADES)) {
       if (unidadeAutorizada(unidade)) await obterCatalogo(unidade, { atualizar: true });
     }
-    voltar(res, '/mapeamento', 'Lista do Conta Azul atualizada.');
+    const destino = String(req.body?.voltar || '/mapeamento');
+    voltar(res, destino.startsWith('/') ? destino : '/mapeamento', 'Lista do Conta Azul atualizada.');
   } catch (erro) {
     voltar(res, '/mapeamento', erro.message);
   }

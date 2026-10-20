@@ -6,7 +6,7 @@ import { PASTA_ENTRADA, config } from './config.js';
 import { listarOs, obterOs, salvarOs, registrarHistorico } from './armazenamento.js';
 import { lerOsDeCsv } from './hts/importarCsv.js';
 import { lerOsDePdf } from './hts/lerPdf.js';
-import { carregarMapeamento, chaveMapa } from './mapeamento.js';
+import { carregarMapeamento, chaveMapa, adicionarMapeamentos } from './mapeamento.js';
 import { validarOs } from './validacao.js';
 import { montarVenda } from './contaazul/montarVenda.js';
 import { buscarCliente, criarVenda, proximoNumeroVenda } from './contaazul/cliente.js';
@@ -60,6 +60,11 @@ export function importarOs(lista, origem) {
       continue;
     }
     const os = { ...nova, historico: existente?.historico ?? [] };
+    // Mantém o produto já escolhido para o mesmo item numa importação anterior.
+    os.itens.forEach((item, i) => {
+      const antes = existente?.itens?.[i];
+      if (antes?.escolha && antes.codigoHts === item.codigoHts) item.escolha = antes.escolha;
+    });
     aplicarValidacao(os, mapeamento);
     registrarHistorico(os, `${existente ? 'Reimportada' : 'Importada'} de ${origem}.`);
     salvarOs(os);
@@ -83,15 +88,15 @@ function aplicarValidacao(os, mapeamento) {
   os.status = os.problemas.length ? 'com_erro' : 'pendente';
 }
 
-// Itens das OS ainda não enviadas que não têm correspondente no Conta Azul,
-// sem repetição. Alimenta a tela de mapeamento.
+// Serviços das OS ainda não enviadas que não têm correspondente no Conta Azul,
+// sem repetição. Alimenta a tela "Mapear serviços". Produtos são escolhidos na OS.
 export function itensSemMapeamento() {
   const mapeamento = carregarMapeamento();
   const pendentes = new Map();
   for (const os of listarOs()) {
     if (TRAVADOS.has(os.status)) continue;
     for (const item of os.itens ?? []) {
-      if (item.tipo !== 'produto' && item.tipo !== 'servico') continue;
+      if (item.tipo !== 'servico') continue;
       const chave = chaveMapa(os.unidade, item.tipo, item.codigoHts);
       if (mapeamento.has(chave)) continue;
       if (!pendentes.has(chave)) {
@@ -102,6 +107,36 @@ export function itensSemMapeamento() {
     }
   }
   return [...pendentes.values()];
+}
+
+// Define o produto (SKU) do Conta Azul de um item da OS. Com "sempre", grava também
+// no mapeamento fixo, para as próximas OS com a mesma descrição.
+export function escolherProduto(chave, indice, produto, { sempre = false } = {}) {
+  const os = obterOs(chave);
+  if (!os) throw new Error('OS não encontrada.');
+  if (TRAVADOS.has(os.status)) throw new Error('Esta OS já foi enviada; não dá mais para trocar o produto.');
+  const item = os.itens?.[indice];
+  if (!item || item.tipo !== 'produto') throw new Error('Item não encontrado.');
+
+  item.escolha = { id: produto.id, codigo: produto.codigo ?? '', nome: produto.nome ?? '' };
+  registrarHistorico(os, `Item "${item.descricao}": produto ${produto.codigo ? `${produto.codigo} · ` : ''}${produto.nome}.`);
+  if (sempre) {
+    adicionarMapeamentos([{ unidade: os.unidade, tipo: 'produto', codigoHts: item.codigoHts, idContaAzul: produto.id, fator: 1, observacao: produto.nome }]);
+  }
+  aplicarValidacao(os, carregarMapeamento());
+  salvarOs(os);
+  if (sempre) revalidarPendentes();
+  return obterOs(chave);
+}
+
+export function limparEscolha(chave, indice) {
+  const os = obterOs(chave);
+  if (!os) throw new Error('OS não encontrada.');
+  if (TRAVADOS.has(os.status)) throw new Error('Esta OS já foi enviada; não dá mais para trocar o produto.');
+  if (os.itens?.[indice]) delete os.itens[indice].escolha;
+  aplicarValidacao(os, carregarMapeamento());
+  salvarOs(os);
+  return os;
 }
 
 // Monta a venda consultando o cliente e o próximo número de venda no Conta Azul

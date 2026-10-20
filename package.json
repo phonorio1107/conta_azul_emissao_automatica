@@ -5,13 +5,14 @@
   "type": "module",
   "private": true,
   "engines": {
-    "node": ">=20.6"
+    "node": ">=20.12"
   },
   "scripts": {
-    "painel": "node --env-file=.env src/painel/servidor.js",
-    "autorizar": "node --env-file=.env scripts/autorizar.js",
-    "testar-conexao": "node --env-file=.env scripts/testar-conexao.js",
-    "exportar-catalogo": "node --env-file=.env scripts/exportar-catalogo.js",
+    "painel": "node src/painel/servidor.js",
+    "autorizar": "node scripts/autorizar.js",
+    "testar-conexao": "node scripts/testar-conexao.js",
+    "exportar-catalogo": "node scripts/exportar-catalogo.js",
+    "configurar": "node scripts/configurar.js",
     "test": "node --test"
   },
   "dependencies": {
