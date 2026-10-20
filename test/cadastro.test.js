@@ -199,3 +199,20 @@ test('script da planilha: teste pelo navegador explica o problema', () => {
   assert.match(carregarScript(p).doGet({ parameter: {} }).erro, /Acesso OK/);
   assert.match(carregarScript(p, { id: 'errado' }).doGet({ parameter: { token: 'senha' } }).erro, /PLANILHA_ID/);
 });
+
+test('sem planilha configurada: cria só no Conta Azul, sem pendências', async () => {
+  delete process.env.PLANILHA_URL;
+  delete process.env.PLANILHA_TOKEN;
+  let chamouPlanilha = false;
+  globalThis.fetch = async (url, opcoes = {}) => {
+    if (new URL(url).host === 'script.google.com') chamouPlanilha = true;
+    if (opcoes.method === 'GET') return new Response('{"items":[]}');
+    return new Response(JSON.stringify({ id: 'so-ca' }));
+  };
+  const r = await cadastrarProduto('vinhedo', { ...dados, sku: 'HT0900' });
+  assert.equal(r.produto.id, 'so-ca');
+  assert.equal(r.semPlanilha, true);
+  assert.equal(r.erroPlanilha, null);
+  assert.equal(chamouPlanilha, false);
+  assert.equal(linhasPendentes().length, 0);
+});

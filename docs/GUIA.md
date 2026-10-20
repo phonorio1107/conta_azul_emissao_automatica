@@ -110,7 +110,7 @@ O PDF traz a peça com nome genérico ("Filtro de oleo"), mas no Conta Azul cada
 5. A peça ainda não existe no Conta Azul? Clique em **Cadastrar produto novo**: preencha os campos da planilha
    (SKU já vem sugerido, Endereço, Cód. Fabricante, Marca, Descrição...) e os dados fiscais (NCM, unidade, origem, tipo).
    O produto é criado no Conta Azul com **saldo 0**, entra na sua planilha e já fica escolhido na OS.
-   Para a planilha receber a linha automaticamente, faça uma vez o [passo a passo da planilha](PLANILHA.md).
+   A ligação com a planilha de SKUs é **opcional** e está desligada por enquanto ([como ligar depois](PLANILHA.md)).
 
 **Serviços – mapeados uma vez só**
 

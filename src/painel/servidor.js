@@ -445,7 +445,9 @@ app.get('/produtos/novo', async (req, res) => {
     } catch {
       // sem sugestão: o usuário digita
     }
-    origemSku = `⚠ A planilha não respondeu (${daPlanilha.erro}). ${sku ? 'O SKU abaixo veio do Conta Azul: confira antes de usar.' : 'Digite o SKU.'}`;
+    origemSku = planilhaConfigurada()
+      ? `⚠ A planilha não respondeu (${daPlanilha.erro}). ${sku ? 'O SKU abaixo veio do Conta Azul: confira antes de usar.' : 'Digite o SKU.'}`
+      : sku ? 'SKU sugerido a partir dos produtos do Conta Azul (próximo da sequência). Confira antes de criar.' : '';
   }
   await formularioProduto(res, unidade, {
     os: req.query.os ?? '',
@@ -466,9 +468,9 @@ app.post('/produtos/novo', async (req, res) => {
   const unidade = UNIDADES[req.body.unidade] ? req.body.unidade : 'vinhedo';
   const d = { ...req.body };
   try {
-    const { problemas, produto, erroPlanilha } = await cadastrarProduto(unidade, d);
+    const { problemas, produto, erroPlanilha, semPlanilha } = await cadastrarProduto(unidade, d);
     if (problemas) return formularioProduto(res, unidade, d, problemas);
-    let aviso = `Produto ${produto.codigo} criado no Conta Azul${erroPlanilha ? '' : ' e na planilha'}.`;
+    let aviso = `Produto ${produto.codigo} criado no Conta Azul${erroPlanilha || semPlanilha ? '' : ' e na planilha'}.`;
     if (erroPlanilha) aviso += `\nMas NÃO foi para a planilha: ${erroPlanilha}\nEle ficou guardado; use "Enviar para a planilha agora" na tela inicial.`;
     if (d.os && d.item !== '') {
       escolherProduto(d.os, Number(d.item), produto);
@@ -527,14 +529,14 @@ async function formularioProduto(res, unidade, v, problemas = []) {
     'Cadastrar produto',
     `<p><a href="${v.os ? rotaOs(v.os) : '/'}">← voltar</a></p>
      <h1>Cadastrar produto · ${esc(UNIDADES[unidade])}</h1>
-     <p>Cria o produto no Conta Azul (com saldo 0) e adiciona a linha na planilha de SKUs${planilhaConfigurada() ? '' : ' <b>(planilha ainda não configurada: o produto fica guardado para enviar depois)</b>'}.</p>
+     <p>Cria o produto no Conta Azul (com saldo 0)${planilhaConfigurada() ? ' e adiciona a linha na planilha de SKUs' : ''}.</p>
      ${[erroUnidades, ...problemas].filter(Boolean).length ? `<ul class="problemas">${[erroUnidades, ...problemas].filter(Boolean).map((p) => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}
      ${v.origemSku ? `<p class="${v.origemSku.startsWith('⚠') ? 'problema' : ''}">${esc(v.origemSku)}</p>` : ''}
      <form method="post" action="/produtos/novo" class="formulario">
        <input type="hidden" name="unidade" value="${esc(unidade)}">
        <input type="hidden" name="os" value="${valor('os')}">
        <input type="hidden" name="item" value="${valor('item')}">
-       <fieldset><legend>Planilha</legend>
+       <fieldset><legend>Produto</legend>
          ${campo('sku', 'SKU', 'maxlength="20" required')}
          ${campo('endereco', 'Endereço', 'placeholder="ex.: 7-6"')}
          ${campo('codFabricante', 'Cód. Fabricante', 'required placeholder="ex.: 8100 5W40"')}
@@ -561,7 +563,7 @@ async function formularioProduto(res, unidade, v, problemas = []) {
          ${campo('valorVenda', 'Valor de venda (opcional)', 'size="8" placeholder="0,00"')}
          ${campo('custo', 'Custo (opcional)', 'size="8" placeholder="0,00"')}
        </fieldset>
-       <div class="acoes"><button>Criar no Conta Azul e na planilha</button></div>
+       <div class="acoes"><button>${planilhaConfigurada() ? 'Criar no Conta Azul e na planilha' : 'Criar no Conta Azul'}</button></div>
      </form>
      <script>
        const f = document.querySelector('form.formulario');

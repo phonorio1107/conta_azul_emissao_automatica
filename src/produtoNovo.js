@@ -3,7 +3,7 @@
 // Grandeza, Equivalência, Nome Completo).
 import { lerJson, gravarJson } from './armazenamento.js';
 import { criarProduto, produtoPorSku } from './contaazul/cliente.js';
-import { enviarParaPlanilha } from './planilha.js';
+import { enviarParaPlanilha, planilhaConfigurada } from './planilha.js';
 
 // Códigos de origem da mercadoria (tabela do ICMS) como o Conta Azul nomeia.
 export const ORIGENS = {
@@ -102,6 +102,8 @@ export async function cadastrarProduto(unidade, d) {
   const catalogo = lerJson(`catalogo-${unidade}.json`, null);
   if (catalogo) gravarJson(`catalogo-${unidade}.json`, { ...catalogo, itens: [...catalogo.itens, produto] });
 
+  // Planilha é opcional: sem PLANILHA_URL/PLANILHA_TOKEN no .env, cria só no Conta Azul.
+  if (!planilhaConfigurada()) return { produto, erroPlanilha: null, semPlanilha: true };
   const maiusculo = (v) => String(v ?? '').trim().toUpperCase();
   const erroPlanilha = await enviarParaPlanilha({
     sku,

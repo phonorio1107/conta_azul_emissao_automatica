@@ -15,8 +15,7 @@ Na ordem. Cada etapa só começa quando a anterior estiver ✔.
 - [ ] Tentar emitir a NF a partir dela (na conta de teste pode não ser possível; anotar o que acontecer)
 - [ ] Voltar `ENVIO_REAL=false`
 
-- [ ] Ligar a planilha de SKUs ao painel ([docs/PLANILHA.md](PLANILHA.md)) e testar **Cadastrar produto** na conta de teste
-  (depois apagar da planilha a linha de teste)
+- [ ] (Opcional, depois) Ligar a planilha de SKUs ao painel ([docs/PLANILHA.md](PLANILHA.md))
 
 ## Etapa 2 – Combinar as regras com a Sol
 
