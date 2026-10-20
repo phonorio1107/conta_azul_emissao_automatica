@@ -32,6 +32,13 @@ São duas fases:
    npm install
    ```
 
+> **Atalhos de dois cliques** (na pasta do projeto):
+> - **`Abrir painel.bat`**: abre o painel e o navegador. Para fechar o painel, feche a janela preta.
+> - **`Configurar.bat`**: abre o `.env` no Bloco de Notas.
+> - **`Abrir terminal aqui.bat`**: abre a tela preta já na pasta certa (para os comandos `npm run ...`).
+>
+> Dica: clique com o botão direito em `Abrir painel.bat` → **Mostrar mais opções → Enviar para → Área de trabalho (criar atalho)**.
+
 ## 2. Configurar as credenciais
 
 > **Onde ficam seus dados:** o `.env`, a conexão com o Conta Azul, as OS e o mapeamento ficam em
