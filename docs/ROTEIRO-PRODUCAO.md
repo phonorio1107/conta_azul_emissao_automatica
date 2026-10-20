@@ -1,0 +1,63 @@
+# Roteiro até a produção
+
+Na ordem. Cada etapa só começa quando a anterior estiver ✔.
+
+## Etapa 1 – Primeira venda na conta de teste
+
+- [ ] Atualizar o projeto no computador (baixar o ZIP e extrair por cima, "Substituir")
+- [ ] Abrir o painel e conferir se aparecem os botões **Enviar PDFs das OS** e **Mapear itens**
+- [ ] **Mapear itens**: ligar os itens da OS a produtos/serviços da conta de teste
+- [ ] Cadastrar na conta de teste um cliente com o **mesmo nome** do cliente da OS
+- [ ] **Ver o que seria enviado**: conferir cliente, itens, valores e total
+- [ ] No `.env`, `ENVIO_REAL=true`, reiniciar o painel e clicar em **Aprovar e criar venda**
+- [ ] Conferir a venda no Conta Azul da conta de teste (cliente, itens, valores, total, pagamento)
+- [ ] Tentar emitir a NF a partir dela (na conta de teste pode não ser possível; anotar o que acontecer)
+- [ ] Voltar `ENVIO_REAL=false`
+
+## Etapa 2 – Combinar as regras com a Sol
+
+- [ ] Enviar a mensagem abaixo e anotar as respostas
+- [ ] Ajustar `SITUACAO_VENDA` e `FORMA_PAGAMENTO_PADRAO` no `.env` conforme combinado
+
+> Oi, Sol! Estou automatizando o lançamento das vendas das OS no Conta Azul (Vinhedo e Barueri). O sistema
+> cria a venda a partir do PDF da OS e eu emito a NF por ela, como hoje. Preciso confirmar com você 3 pontos:
+>
+> 1. A venda pode nascer como **Aprovada**? Isso já gera o contas a receber.
+> 2. O pagamento vai como **à vista, uma parcela, vencendo na data do faturamento da OS**. Está certo, ou
+>    vocês lançam de outro jeito (parcelado, cartão com prazo etc.)?
+> 3. O PDF da OS não traz a **forma de pagamento**. Posso usar uma padrão (qual?) ou prefere que eu
+>    escolha OS por OS?
+>
+> Nada muda na parte fiscal: CFOP, natureza e impostos continuam vindo do cadastro dos produtos no Conta Azul.
+
+## Etapa 3 – App de produção
+
+- [ ] No portal do desenvolvedor: **Criar uma aplicação → Produção**
+- [ ] URL de redirecionamento: `http://localhost:3000/oauth/retorno`
+- [ ] Guardar o Client ID e o Client Secret novos no Bloco de Notas (nunca em chat ou print)
+- [ ] Se o portal pedir aprovação/revisão do Conta Azul, anotar o prazo e o que pediram
+
+## Etapa 4 – Conectar Vinhedo e Barueri
+
+- [ ] Confirmar: Vinhedo e Barueri são **contas separadas** no Conta Azul (logins/CNPJs diferentes)?
+- [ ] No `.env`: Client ID e Secret de produção, `CONTAAZUL_REDIRECT_URI=http://localhost:3000/oauth/retorno`, `ENVIO_REAL=false`
+- [ ] Apagar da pasta `dados`: `tokens.json`, `mapeamento.csv`, `catalogo-*.json` e `os.json` (eram da conta de teste)
+- [ ] Painel → **Conectar Vinhedo** (login de Vinhedo) e **Conectar Barueri** (login de Barueri)
+- [ ] `npm run testar-conexao -- vinhedo` e `-- barueri`: conferir **razão social e CNPJ** de cada uma
+
+## Etapa 5 – Mapeamento real
+
+- [ ] Enviar ao painel os PDFs das OS faturadas de alguns dias (Vinhedo e Barueri)
+- [ ] **Mapear itens** com os produtos e serviços reais
+- [ ] Mandar ao Claude **um PDF de OS de Barueri** (dados do cliente tapados) para confirmar o layout
+
+## Etapa 6 – Simulação com OS reais (alguns dias)
+
+- [ ] Para cada OS do dia: **Ver o que seria enviado** e comparar com o que você lançaria à mão
+- [ ] Anotar qualquer diferença e mandar ao Claude
+
+## Etapa 7 – Ligar
+
+- [ ] `ENVIO_REAL=true`
+- [ ] Primeira venda real de valor baixo: conferir no Conta Azul antes de emitir a NF
+- [ ] A partir daí, o dia a dia do `docs/GUIA.md`

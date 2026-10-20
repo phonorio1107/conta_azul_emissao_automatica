@@ -5,7 +5,8 @@ Emissão automatizada de NFs de produto e serviço no ERP Conta Azul, a partir d
 **Cenário B:** o sistema lê as OS fechadas, confere tudo e cria a **venda** no Conta Azul pela API oficial. A NF é emitida a partir dessa venda com um clique.
 
 - **Passo a passo de instalação e uso:** [docs/GUIA.md](docs/GUIA.md)
-- **O que pedir ao time do HTS:** [docs/PEDIDO-LUCAS.md](docs/PEDIDO-LUCAS.md)
+- **Roteiro até a produção (checklist):** [docs/ROTEIRO-PRODUCAO.md](docs/ROTEIRO-PRODUCAO.md)
+- **O que pedir ao time do HTS (opcional):** [docs/PEDIDO-LUCAS.md](docs/PEDIDO-LUCAS.md)
 
 ## Comandos
 
@@ -42,5 +43,6 @@ exemplos/              modelos de CSV
 - [x] Campos e endereços conferidos com o OpenAPI oficial (`docs/openapi/`)
 - [ ] Primeiro teste real com a conta de teste do app de desenvolvimento
 - [x] Leitura do PDF da OS gerado pelo HTS
+- [x] Tela de mapeamento e envio de PDFs pelo painel
 - [ ] Leitura direta do HTS por API (opcional; depende do Lucas)
 - [ ] Marcar "NF emitida" automaticamente, consultando as notas pela venda na API
