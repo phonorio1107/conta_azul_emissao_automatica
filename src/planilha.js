@@ -47,13 +47,15 @@ export async function reenviarPendentes() {
   return { enviadas, restantes: restantes.length };
 }
 
-// Pergunta à planilha qual o próximo SKU da sequência (HT....). null se não der.
+// Pergunta à planilha qual o próximo SKU da sequência (HT....).
+// Devolve { sku } ou { erro } (para o painel mostrar por que não veio da planilha).
 export async function proximoSkuDaPlanilha() {
-  if (!planilhaConfigurada()) return null;
+  if (!planilhaConfigurada()) return { erro: 'planilha não configurada no .env' };
   try {
-    return (await postar({ acao: 'proximoSku' })).sku ?? null;
-  } catch {
-    return null;
+    const sku = (await postar({ acao: 'proximoSku' })).sku;
+    return sku ? { sku } : { erro: 'a planilha não devolveu o SKU' };
+  } catch (erro) {
+    return { erro: erro.message };
   }
 }
 
@@ -72,7 +74,9 @@ async function postar(linha) {
   try {
     dados = JSON.parse(texto);
   } catch {
-    throw new Error(`A planilha respondeu algo inesperado (HTTP ${resposta.status}). Confira o link do script.`);
+    const titulo = texto.match(/<title>([^<]*)<\/title>/i)?.[1] ?? '';
+    const erroGoogle = texto.match(/(Exception|Erro|Error)[^<]{0,200}/)?.[0] ?? '';
+    throw new Error(`A planilha respondeu algo inesperado (HTTP ${resposta.status}${titulo ? `, "${titulo}"` : ''}). ${erroGoogle || 'Confira o link do script e o PLANILHA_ID.'}`);
   }
   if (!dados.ok) throw new Error(`A planilha recusou: ${dados.erro ?? 'erro desconhecido'}`);
   return dados;

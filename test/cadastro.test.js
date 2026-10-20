@@ -137,6 +137,25 @@ function planilhaFalsa() {
   return { linhas, formulas, aba };
 }
 
+function carregarScript(planilha, { id = 'id-da-planilha' } = {}) {
+  const codigo = fs.readFileSync(new URL('../docs/planilha/apps-script.gs', import.meta.url), 'utf8')
+    .replace("'TROQUE-POR-UMA-SENHA'", "'senha'")
+    .replace("'COLE-AQUI-O-ID-DA-PLANILHA'", `'${id}'`);
+  const contexto = {
+    SpreadsheetApp: {
+      openById: (x) => {
+        if (x !== 'id-da-planilha') throw new Error('Unexpected error while getting the method or property openById');
+        return { getSheetByName: (n) => (n === 'Inventário' ? planilha.aba : null), getSheets: () => [{ getName: () => 'Inventário' }] };
+      },
+    },
+    LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
+    ContentService: { MimeType: { JSON: 'json' }, createTextOutput: (t) => ({ setMimeType: () => JSON.parse(t) }) },
+  };
+  vm.createContext(contexto);
+  vm.runInContext(codigo, contexto);
+  return contexto;
+}
+
 function rodarScript(planilha, pedido) {
   const codigo = fs.readFileSync(new URL('../docs/planilha/apps-script.gs', import.meta.url), 'utf8').replace("'TROQUE-POR-UMA-SENHA'", "'senha'")
     .replace("'COLE-AQUI-O-ID-DA-PLANILHA'", "'id-da-planilha'");
@@ -144,7 +163,7 @@ function rodarScript(planilha, pedido) {
     SpreadsheetApp: {
       openById: (id) => {
         assert.equal(id, 'id-da-planilha');
-        return { getSheetByName: (n) => (n === 'Inventário' ? planilha.aba : null) };
+        return { getSheetByName: (n) => (n === 'Inventário' ? planilha.aba : null), getSheets: () => [{ getName: () => 'Inventário' }] };
       },
     },
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
@@ -170,4 +189,13 @@ test('script da planilha: próximo SKU, nova linha no lugar certo e fórmula cop
   assert.equal(p.formulas['5,10'], p.formulas['4,10']);
 
   assert.match(rodarScript(p, { token: 'senha', sku: 'ht0807' }).erro, /já está na planilha/);
+});
+
+test('script da planilha: teste pelo navegador explica o problema', () => {
+  const p = planilhaFalsa();
+  const ok = carregarScript(p).doGet({ parameter: { token: 'senha' } });
+  assert.deepEqual(ok, { ok: true, mensagem: 'Tudo certo! Senha, planilha e aba conferem.', proximoSku: 'HT0807' });
+  assert.match(carregarScript(p).doGet({ parameter: { token: 'senha.' } }).erro, /DIFERENTE/);
+  assert.match(carregarScript(p).doGet({ parameter: {} }).erro, /Acesso OK/);
+  assert.match(carregarScript(p, { id: 'errado' }).doGet({ parameter: { token: 'senha' } }).erro, /PLANILHA_ID/);
 });

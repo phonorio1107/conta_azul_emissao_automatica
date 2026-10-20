@@ -25,6 +25,34 @@ const CAMPOS = {
   'nome completo': 'nome',
 };
 
+// Teste pelo navegador: abra  <link /exec>?token=SUA_SENHA
+// Responde se a senha confere, se achou a planilha/aba e qual o próximo SKU.
+function doGet(e) {
+  const token = e && e.parameter ? e.parameter.token : '';
+  if (!token) return responder({ ok: false, erro: 'Acesso OK. Para testar, coloque ?token=SUA_SENHA no fim do link.' });
+  if (token !== TOKEN) return responder({ ok: false, erro: 'A senha do link é DIFERENTE da senha (TOKEN) do script.' });
+  const aba = abrirAba();
+  if (aba.erro) return responder({ ok: false, erro: aba.erro });
+  const mapa = lerCabecalho(aba.aba);
+  if (!mapa) return responder({ ok: false, erro: 'Achei a aba, mas não achei a coluna "SKU" no cabeçalho.' });
+  return responder({ ok: true, mensagem: 'Tudo certo! Senha, planilha e aba conferem.', proximoSku: proximoSku(aba.aba, mapa) });
+}
+
+function abrirAba() {
+  let planilha;
+  try {
+    planilha = SpreadsheetApp.openById(PLANILHA_ID);
+  } catch (erro) {
+    return { erro: 'Não consegui abrir a planilha. Confira o PLANILHA_ID no script (' + erro.message + ').' };
+  }
+  const aba = planilha.getSheetByName(ABA);
+  if (!aba) {
+    const nomes = planilha.getSheets().map(function (a) { return a.getName(); }).join(', ');
+    return { erro: 'Não achei a aba "' + ABA + '". Abas desta planilha: ' + nomes + '. Ajuste a linha const ABA no script.' };
+  }
+  return { aba: aba };
+}
+
 function doPost(e) {
   let dados;
   try {
@@ -37,8 +65,9 @@ function doPost(e) {
   const trava = LockService.getScriptLock();
   trava.waitLock(20000);
   try {
-    const aba = SpreadsheetApp.openById(PLANILHA_ID).getSheetByName(ABA);
-    if (!aba) return responder({ ok: false, erro: 'Aba "' + ABA + '" não encontrada.' });
+    const aberta = abrirAba();
+    if (aberta.erro) return responder({ ok: false, erro: aberta.erro });
+    const aba = aberta.aba;
     const mapa = lerCabecalho(aba);
     if (!mapa) return responder({ ok: false, erro: 'Não achei a coluna "SKU" no cabeçalho.' });
 

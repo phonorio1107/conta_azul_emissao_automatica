@@ -434,10 +434,18 @@ app.get('/produtos/novo', async (req, res) => {
   const unidade = UNIDADES[req.query.unidade] ? req.query.unidade : 'vinhedo';
   const prefs = preferencias();
   let sku = '';
-  try {
-    sku = (await proximoSkuDaPlanilha()) || proximoSku((await obterCatalogo(unidade)).itens.map((i) => i.codigo));
-  } catch {
-    // sem sugestão: o usuário digita
+  let origemSku = '';
+  const daPlanilha = await proximoSkuDaPlanilha();
+  if (daPlanilha.sku) {
+    sku = daPlanilha.sku;
+    origemSku = 'SKU sugerido pela planilha (próximo da sequência).';
+  } else {
+    try {
+      sku = proximoSku((await obterCatalogo(unidade)).itens.map((i) => i.codigo));
+    } catch {
+      // sem sugestão: o usuário digita
+    }
+    origemSku = `⚠ A planilha não respondeu (${daPlanilha.erro}). ${sku ? 'O SKU abaixo veio do Conta Azul: confira antes de usar.' : 'Digite o SKU.'}`;
   }
   await formularioProduto(res, unidade, {
     os: req.query.os ?? '',
@@ -450,6 +458,7 @@ app.get('/produtos/novo', async (req, res) => {
     unidadeId: prefs.unidadeId ?? '',
     origem: prefs.origem ?? '',
     tipo: prefs.tipo ?? '',
+    origemSku,
   });
 });
 
@@ -520,6 +529,7 @@ async function formularioProduto(res, unidade, v, problemas = []) {
      <h1>Cadastrar produto · ${esc(UNIDADES[unidade])}</h1>
      <p>Cria o produto no Conta Azul (com saldo 0) e adiciona a linha na planilha de SKUs${planilhaConfigurada() ? '' : ' <b>(planilha ainda não configurada: o produto fica guardado para enviar depois)</b>'}.</p>
      ${[erroUnidades, ...problemas].filter(Boolean).length ? `<ul class="problemas">${[erroUnidades, ...problemas].filter(Boolean).map((p) => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}
+     ${v.origemSku ? `<p class="${v.origemSku.startsWith('⚠') ? 'problema' : ''}">${esc(v.origemSku)}</p>` : ''}
      <form method="post" action="/produtos/novo" class="formulario">
        <input type="hidden" name="unidade" value="${esc(unidade)}">
        <input type="hidden" name="os" value="${valor('os')}">

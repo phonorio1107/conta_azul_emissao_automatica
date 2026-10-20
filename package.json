@@ -13,6 +13,7 @@
     "testar-conexao": "node scripts/testar-conexao.js",
     "exportar-catalogo": "node scripts/exportar-catalogo.js",
     "configurar": "node scripts/configurar.js",
+    "testar-planilha": "node scripts/testar-planilha.js",
     "test": "node --test"
   },
   "dependencies": {

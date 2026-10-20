@@ -44,7 +44,18 @@ já tenha (como um `doPost` seu).
    ```
 3. Salve, feche e reinicie o painel (`Ctrl+C` e `npm run painel`).
 
-## 4. Testar
+## 4. Testar pelo navegador (antes do painel)
+
+Abra no navegador o link `/exec` com a sua senha no final:
+```
+https://script.google.com/macros/s/....../exec?token=SUA_SENHA
+```
+- `"ok": true` e `"proximoSku": "HT...."` → tudo certo.
+- Qualquer outra resposta diz exatamente o problema (senha diferente, ID da planilha errado, aba com outro nome).
+
+Ou, na pasta do projeto: `npm run testar-planilha`.
+
+## 5. Testar no painel
 
 1. No painel, clique em **Cadastrar produto**. O campo **SKU** já deve vir com o próximo número
    (ex.: HT0807) — sinal de que o painel conversou com a planilha.
