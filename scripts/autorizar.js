@@ -30,10 +30,11 @@ try {
     if (!texto.includes('code=')) {
       throw new Error('Não achei um endereço com "code=" na área de transferência. Copie a barra de endereço do navegador e tente de novo.');
     }
-    const url = new URL(texto.split(/\s+/).find((t) => t.includes('code=')));
-    const code = url.searchParams.get('code');
-    if (!code) throw new Error('Não achei o "code" nesse endereço. Confira se copiou a barra inteira.');
-    const feita = await concluirAutorizacao({ code, state: url.searchParams.get('state') });
+    // Aceita o endereço inteiro ou só um pedaço dele ("code=...&state=...").
+    const code = texto.match(/code=([^&\s]+)/)?.[1];
+    const state = texto.match(/state=([^&\s]+)/)?.[1];
+    if (!code || !state) throw new Error('Não achei o "code" e o "state" nesse endereço. Copie a barra de endereço inteira.');
+    const feita = await concluirAutorizacao({ code: decodeURIComponent(code), state: decodeURIComponent(state) });
     console.log(`\nPronto: ${feita} conectada. Agora rode "npm run testar-conexao -- ${feita}".`);
   }
 } catch (erro) {
