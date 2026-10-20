@@ -1,5 +1,6 @@
 // Chamadas à API do Conta Azul, sempre em nome de uma unidade.
-import { accessToken } from './auth.js';
+import { accessToken, removerTokens } from './auth.js';
+import { cnpjEsperado, UNIDADES } from '../config.js';
 import { API, CAMINHOS } from './endpoints.js';
 
 export async function chamar(unidade, metodo, caminho, { consulta, corpo } = {}) {
@@ -60,6 +61,25 @@ export async function listarTudo(unidade, caminho, consulta = {}, tamanho = 100)
 
 export async function contaConectada(unidade) {
   return chamar(unidade, 'GET', CAMINHOS.contaConectada);
+}
+
+// Trava de segurança: confere se a conexão da unidade é com o CNPJ certo.
+// Se não for, desfaz a conexão (para nunca criar venda na empresa errada) e explica.
+const conferidas = new Set();
+export async function conferirEmpresa(unidade, { desconectarSeErrada = true } = {}) {
+  const esperado = cnpjEsperado(unidade);
+  if (!esperado || conferidas.has(unidade)) return;
+  const empresa = await contaConectada(unidade);
+  const conectado = String(empresa?.documento ?? '').replace(/\D/g, '');
+  if (conectado !== esperado) {
+    if (desconectarSeErrada) removerTokens(unidade);
+    throw new Error(
+      `${UNIDADES[unidade] ?? unidade} foi conectada à empresa errada: ${empresa?.razao_social ?? empresa?.nome_fantasia ?? '?'} ` +
+      `(CNPJ ${conectado || '?'}). O esperado é o CNPJ ${esperado}. A conexão foi desfeita: ` +
+      'entre no Conta Azul com a empresa certa ativa e conecte de novo.',
+    );
+  }
+  conferidas.add(unidade);
 }
 
 // Procura o cliente da OS no Conta Azul: pelo CPF/CNPJ quando a OS traz (planilha),

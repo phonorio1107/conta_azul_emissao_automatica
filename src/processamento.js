@@ -9,7 +9,7 @@ import { lerOsDePdf } from './hts/lerPdf.js';
 import { carregarMapeamento, chaveMapa, adicionarMapeamentos } from './mapeamento.js';
 import { validarOs } from './validacao.js';
 import { montarVenda } from './contaazul/montarVenda.js';
-import { buscarCliente, criarVenda, proximoNumeroVenda } from './contaazul/cliente.js';
+import { buscarCliente, criarVenda, proximoNumeroVenda, conferirEmpresa } from './contaazul/cliente.js';
 import { normalizarFormaPagamento } from './pagamento.js';
 
 export const STATUS = {
@@ -146,6 +146,7 @@ export async function prepararVenda(os) {
   const problemas = validarOs(os, mapeamento);
   if (problemas.length) return { problemas };
 
+  await conferirEmpresa(os.unidade);
   const { cliente, problema } = await buscarCliente(os.unidade, os.cliente);
   if (problema) return { problemas: [problema] };
   const c = config();

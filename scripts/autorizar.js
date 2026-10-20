@@ -5,6 +5,7 @@ import readline from 'node:readline/promises';
 import { execFileSync } from 'node:child_process';
 import { stdin, stdout } from 'node:process';
 import { linkDeAutorizacao, concluirAutorizacao, conectarComRefreshToken } from '../src/contaazul/auth.js';
+import { conferirEmpresa, contaConectada } from '../src/contaazul/cliente.js';
 
 const unidade = (process.argv[2] ?? '').toLowerCase();
 const comRefresh = process.argv.includes('--refresh-token');
@@ -35,7 +36,9 @@ try {
     const state = texto.match(/state=([^&\s]+)/)?.[1];
     if (!code || !state) throw new Error('Não achei o "code" e o "state" nesse endereço. Copie a barra de endereço inteira.');
     const feita = await concluirAutorizacao({ code: decodeURIComponent(code), state: decodeURIComponent(state) });
-    console.log(`\nPronto: ${feita} conectada. Agora rode "npm run testar-conexao -- ${feita}".`);
+    await conferirEmpresa(feita);
+    const empresa = await contaConectada(feita);
+    console.log(`\nPronto: ${feita} conectada a ${empresa?.razao_social ?? '?'} (CNPJ ${empresa?.documento ?? '?'}).`);
   }
 } catch (erro) {
   console.error(`\nErro: ${erro.message}`);

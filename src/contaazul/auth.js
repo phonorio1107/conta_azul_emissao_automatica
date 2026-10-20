@@ -55,6 +55,12 @@ export async function conectarComRefreshToken(unidade, refreshToken) {
   salvarTokens(unidade, { refresh_token: refreshToken.trim(), ...tokens });
 }
 
+export function removerTokens(unidade) {
+  const todos = lerJson('tokens.json', {});
+  delete todos[unidade];
+  gravarJson('tokens.json', todos);
+}
+
 export function unidadeAutorizada(unidade) {
   return Boolean(lerJson('tokens.json', {})[unidade]);
 }

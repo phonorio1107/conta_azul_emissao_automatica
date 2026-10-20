@@ -77,6 +77,12 @@ export function exigirCredenciais() {
   return c;
 }
 
+// CNPJ que cada unidade TEM que ter no Conta Azul (CNPJ_VINHEDO, CNPJ_BARUERI no .env).
+// Vazio = não confere.
+export function cnpjEsperado(unidade) {
+  return String(process.env[`CNPJ_${String(unidade).toUpperCase()}`] ?? '').replace(/\D/g, '');
+}
+
 export function validarUnidade(unidade) {
   if (!UNIDADES[unidade]) {
     throw new Error(`Unidade desconhecida: "${unidade}". Use: ${Object.keys(UNIDADES).join(', ')}.`);

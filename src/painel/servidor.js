@@ -14,7 +14,7 @@ import { adicionarMapeamentos, chaveMapa, carregarMapeamento } from '../mapeamen
 import { obterCatalogo, buscarNoCatalogo } from '../catalogo.js';
 import { ORIGENS, TIPOS, cadastrarProduto, preferencias, proximoSku } from '../produtoNovo.js';
 import { proximoSkuDaPlanilha, linhasPendentes, reenviarPendentes, descartarPendentes, planilhaConfigurada } from '../planilha.js';
-import { buscarNcm, listarUnidadesMedida } from '../contaazul/cliente.js';
+import { buscarNcm, listarUnidadesMedida, conferirEmpresa } from '../contaazul/cliente.js';
 import { carregarPecas, buscarPecas, lerPecasDeCsv, importarPecas, vincularAoContaAzul, nomeCompleto, CAMPOS_PECA } from '../pecas.js';
 import { totalOs, tipoOs } from '../validacao.js';
 import { reais } from '../numeros.js';
@@ -705,6 +705,7 @@ app.get('/oauth/retorno', async (req, res) => {
   try {
     if (req.query.error) throw new Error(`O Conta Azul não autorizou: ${req.query.error_description ?? req.query.error}`);
     const unidade = await concluirAutorizacao({ code: req.query.code, state: req.query.state });
+    await conferirEmpresa(unidade);
     voltar(res, '/', `${UNIDADES[unidade]} conectada ao Conta Azul.`);
   } catch (erro) {
     voltar(res, '/', erro.message);

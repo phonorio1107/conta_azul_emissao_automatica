@@ -122,3 +122,21 @@ test('busca de cliente: por e-mail, por documento, e recusa nome repetido', asyn
   assert.match((await buscarCliente('vinhedo', { nome: 'Homonimo' })).problema, /Há 2 clientes/);
   assert.match((await buscarCliente('vinhedo', { nome: 'Ninguém' })).problema, /Nenhum cliente/);
 });
+
+test('trava de CNPJ: empresa errada desfaz a conexão e bloqueia o envio', async () => {
+  const { conferirEmpresa } = await import('../src/contaazul/cliente.js');
+  const { unidadeAutorizada } = await import('../src/contaazul/auth.js');
+  const fetchAntes = globalThis.fetch;
+  process.env.CNPJ_BARUERI = '52.273.172/0001-32';
+  gravarJson('tokens.json', { ...JSON.parse(fs.readFileSync(path.join(pasta, 'tokens.json'), 'utf8')), barueri: { access_token: 't', refresh_token: 'r', expiraEm: Date.now() + 3_600_000 } });
+  globalThis.fetch = async () => new Response(JSON.stringify({ razao_social: 'OUTRA EMPRESA', documento: '24614991000160' }));
+  await assert.rejects(conferirEmpresa('barueri'), /empresa errada: OUTRA EMPRESA \(CNPJ 24614991000160\).*52273172000132/);
+  assert.equal(unidadeAutorizada('barueri'), false);
+
+  gravarJson('tokens.json', { barueri: { access_token: 't', refresh_token: 'r', expiraEm: Date.now() + 3_600_000 } });
+  globalThis.fetch = async () => new Response(JSON.stringify({ razao_social: 'KAIZEN', documento: '52273172000132' }));
+  await conferirEmpresa('barueri');
+  assert.equal(unidadeAutorizada('barueri'), true);
+  globalThis.fetch = fetchAntes;
+  delete process.env.CNPJ_BARUERI;
+});
