@@ -138,9 +138,15 @@ function planilhaFalsa() {
 }
 
 function rodarScript(planilha, pedido) {
-  const codigo = fs.readFileSync(new URL('../docs/planilha/apps-script.gs', import.meta.url), 'utf8').replace("'TROQUE-POR-UMA-SENHA'", "'senha'");
+  const codigo = fs.readFileSync(new URL('../docs/planilha/apps-script.gs', import.meta.url), 'utf8').replace("'TROQUE-POR-UMA-SENHA'", "'senha'")
+    .replace("'COLE-AQUI-O-ID-DA-PLANILHA'", "'id-da-planilha'");
   const contexto = {
-    SpreadsheetApp: { getActiveSpreadsheet: () => ({ getSheetByName: (n) => (n === 'Inventário' ? planilha.aba : null) }) },
+    SpreadsheetApp: {
+      openById: (id) => {
+        assert.equal(id, 'id-da-planilha');
+        return { getSheetByName: (n) => (n === 'Inventário' ? planilha.aba : null) };
+      },
+    },
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: (t) => ({ setMimeType: () => JSON.parse(t) }) },
   };

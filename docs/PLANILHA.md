@@ -4,14 +4,19 @@ Com isso, o botão **Cadastrar produto** do painel cria o produto no Conta Azul 
 linha na aba **Inventário** da sua planilha, com o próximo SKU da sequência (HT....).
 A coluna **Nome Completo** continua sendo a sua fórmula: o script copia a fórmula da linha de cima.
 
-## 1. Colar o script na planilha
+## 1. Criar o script (num projeto separado)
 
-1. Abra a planilha de SKUs no Google Sheets.
-2. Menu **Extensões → Apps Script**. Abre uma aba nova com um editor de código.
+O script do painel fica num projeto **à parte**, para não interferir em outros scripts que a planilha
+já tenha (como um `doPost` seu).
+
+1. Abra **https://script.google.com** (com a mesma conta Google da planilha) e clique em **Novo projeto**.
+2. No topo, clique em "Projeto sem título" e dê o nome **Painel NFs**.
 3. Apague tudo o que estiver no editor.
 4. Abra o arquivo [`apps-script.gs`](planilha/apps-script.gs) (no GitHub, botão **Raw**), copie **tudo** e cole no editor.
-5. Na linha `const TOKEN = 'TROQUE-POR-UMA-SENHA';`, troque o texto entre aspas por uma senha só sua
-   (ex.: `const TOKEN = 'ht-vinhedo-2026-xk91';`). Guarde essa senha.
+5. Preencha as duas linhas do começo:
+   - `const TOKEN = '...'`: troque `TROQUE-POR-UMA-SENHA` por uma senha só sua (ex.: `ht-vinhedo-2026-xk91`). Guarde essa senha.
+   - `const PLANILHA_ID = '...'`: cole o **ID da planilha**. Ele está no link da planilha, entre `/d/` e `/edit`:
+     `https://docs.google.com/spreadsheets/d/`**`1AbC...xyz`**`/edit#gid=0`
 6. Clique no ícone de **disquete** (Salvar).
 
 ## 2. Publicar o script

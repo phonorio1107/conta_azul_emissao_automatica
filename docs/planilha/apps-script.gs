@@ -1,9 +1,13 @@
 /**
  * Script da planilha de SKUs (aba "Inventário") para o painel NFs pelo Conta Azul.
- * Instalação: veja docs/PLANILHA.md. Troque o TOKEN abaixo por uma senha só sua
- * e coloque a mesma senha em PLANILHA_TOKEN no .env do painel.
+ * Fica num projeto SEPARADO (script.google.com → Novo projeto), para não interferir
+ * em outros scripts da planilha. Instalação: veja docs/PLANILHA.md.
+ *
+ * TOKEN: uma senha só sua; a mesma vai em PLANILHA_TOKEN no .env do painel.
+ * PLANILHA_ID: o trecho do link da planilha entre "/d/" e "/edit".
  */
 const TOKEN = 'TROQUE-POR-UMA-SENHA';
+const PLANILHA_ID = 'COLE-AQUI-O-ID-DA-PLANILHA';
 const ABA = 'Inventário';
 
 // Cabeçalho da planilha (sem acento/maiúsculas) -> campo enviado pelo painel.
@@ -33,7 +37,7 @@ function doPost(e) {
   const trava = LockService.getScriptLock();
   trava.waitLock(20000);
   try {
-    const aba = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ABA);
+    const aba = SpreadsheetApp.openById(PLANILHA_ID).getSheetByName(ABA);
     if (!aba) return responder({ ok: false, erro: 'Aba "' + ABA + '" não encontrada.' });
     const mapa = lerCabecalho(aba);
     if (!mapa) return responder({ ok: false, erro: 'Não achei a coluna "SKU" no cabeçalho.' });
