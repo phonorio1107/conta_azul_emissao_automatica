@@ -25,6 +25,13 @@ export async function enviarParaPlanilha(linha) {
   }
 }
 
+// Joga fora as linhas guardadas (ex.: produtos criados só para teste).
+export function descartarPendentes() {
+  const total = linhasPendentes().length;
+  gravarJson(ARQUIVO_PENDENTES, []);
+  return total;
+}
+
 export async function reenviarPendentes() {
   const restantes = [];
   let enviadas = 0;
@@ -58,6 +65,9 @@ async function postar(linha) {
     body: JSON.stringify({ token: process.env.PLANILHA_TOKEN, ...linha }),
   });
   const texto = await resposta.text();
+  if (resposta.status === 401 || resposta.status === 403) {
+    throw new Error(`O Google bloqueou o acesso ao script (HTTP ${resposta.status}). Na implantação, "Quem pode acessar" precisa ser "Qualquer pessoa" e o link precisa terminar em /exec (veja docs/PLANILHA.md).`);
+  }
   let dados;
   try {
     dados = JSON.parse(texto);

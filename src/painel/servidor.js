@@ -13,7 +13,7 @@ import {
 import { adicionarMapeamentos, chaveMapa, carregarMapeamento } from '../mapeamento.js';
 import { obterCatalogo, buscarNoCatalogo } from '../catalogo.js';
 import { ORIGENS, TIPOS, cadastrarProduto, preferencias, proximoSku } from '../produtoNovo.js';
-import { proximoSkuDaPlanilha, linhasPendentes, reenviarPendentes, planilhaConfigurada } from '../planilha.js';
+import { proximoSkuDaPlanilha, linhasPendentes, reenviarPendentes, descartarPendentes, planilhaConfigurada } from '../planilha.js';
 import { buscarNcm, listarUnidadesMedida } from '../contaazul/cliente.js';
 import { totalOs, tipoOs } from '../validacao.js';
 import { reais } from '../numeros.js';
@@ -80,8 +80,12 @@ app.get('/', (req, res) => {
     res,
     'Ordens de Serviço',
     `<div class="acoes">${unidades}</div>
-     ${pendentesPlanilha ? `<div class="aviso">${pendentesPlanilha} produto(s) criado(s) no Conta Azul ainda não foram para a planilha.
-        <form class="inline" method="post" action="/planilha/reenviar"><button class="secundario">Enviar para a planilha agora</button></form></div>` : ''}
+     ${pendentesPlanilha ? `<div class="aviso">${pendentesPlanilha} produto(s) criado(s) no Conta Azul ainda não foram para a planilha:
+        ${linhasPendentes().map((l) => `<b>${esc(l.sku)}</b> ${esc(l.nome)}`).join(' · ')}
+        <div class="acoes">
+          <form class="inline" method="post" action="/planilha/reenviar"><button class="secundario">Enviar para a planilha agora</button></form>
+          <form class="inline" method="post" action="/planilha/descartar" onsubmit="return confirm('Descartar? Essas linhas NÃO vão para a planilha (o produto continua no Conta Azul).')"><button class="secundario">Descartar (era teste)</button></form>
+        </div></div>` : ''}
      <div class="cartoes">${cartoes}</div>
      <div class="acoes">
        <label class="botao">Enviar PDFs das OS
@@ -474,6 +478,10 @@ app.get('/api/ncm', async (req, res) => {
   } catch (erro) {
     res.status(500).json({ erro: erro.message });
   }
+});
+
+app.post('/planilha/descartar', (req, res) => {
+  voltar(res, '/', `${descartarPendentes()} linha(s) descartada(s). A planilha não foi alterada.`);
 });
 
 app.post('/planilha/reenviar', async (req, res) => {

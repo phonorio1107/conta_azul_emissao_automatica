@@ -53,6 +53,9 @@ já tenha (como um `doPost` seu).
 
 ## Se algo der errado
 
+- **"O Google bloqueou o acesso ao script (HTTP 401)"**: em **Implantar → Gerenciar implantações → lápis**,
+  "Quem pode acessar" tem que ser **Qualquer pessoa** (não "Qualquer pessoa com conta do Google" nem "Somente eu").
+  Confira também se o link termina em **/exec** (o link terminado em /dev é só de teste e não funciona).
 - **"A planilha recusou: Senha (token) inválida"**: o `PLANILHA_TOKEN` do `.env` não é igual ao `TOKEN` do script.
 - **"Aba Inventário não encontrada"**: o nome da aba mudou; ajuste `const ABA = 'Inventário';` no script.
 - **Planilha fora do ar**: o produto é criado no Conta Azul mesmo assim e fica guardado. Na tela
