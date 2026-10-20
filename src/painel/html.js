@@ -50,6 +50,9 @@ export function pagina(titulo, corpo, { envioReal, aviso } = {}) {
   form.busca { display:flex; gap:6px; flex-wrap:wrap; }
   table.resultados { margin:4px 0; background:#fafafa; }
   details summary { cursor:pointer; color:#1d4ed8; font-size:13px; }
+  form.formulario fieldset { border:1px solid var(--borda); border-radius:8px; margin:12px 0; display:flex; flex-wrap:wrap; gap:12px; }
+  form.formulario label { font-size:13px; }
+  form.formulario input, form.formulario select { font-size:14px; padding:4px; }
   pre { background:var(--cinza); padding:12px; overflow:auto; border-radius:6px; }
   ul.problemas { color:#8a1d1d; }
   .cartoes { display:flex; gap:12px; flex-wrap:wrap; }

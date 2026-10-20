@@ -13,5 +13,7 @@ export const CAMINHOS = {
   proximoNumeroVenda: '/v1/venda/proximo-numero',
   pessoas: '/v1/pessoas',
   produtos: '/v1/produtos',
+  ncm: '/v1/produtos/ncm',
+  unidadesMedida: '/v1/produtos/unidades-medida',
   servicos: '/v1/servicos',
 };

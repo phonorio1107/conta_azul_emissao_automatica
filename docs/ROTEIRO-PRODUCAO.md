@@ -15,6 +15,9 @@ Na ordem. Cada etapa só começa quando a anterior estiver ✔.
 - [ ] Tentar emitir a NF a partir dela (na conta de teste pode não ser possível; anotar o que acontecer)
 - [ ] Voltar `ENVIO_REAL=false`
 
+- [ ] Ligar a planilha de SKUs ao painel ([docs/PLANILHA.md](PLANILHA.md)) e testar **Cadastrar produto** na conta de teste
+  (depois apagar da planilha a linha de teste)
+
 ## Etapa 2 – Combinar as regras com a Sol
 
 - [ ] Enviar a mensagem abaixo e anotar as respostas
@@ -28,6 +31,8 @@ Na ordem. Cada etapa só começa quando a anterior estiver ✔.
 >    vocês lançam de outro jeito (parcelado, cartão com prazo etc.)?
 > 3. O PDF da OS não traz a **forma de pagamento**. Posso usar uma padrão (qual?) ou prefere que eu
 >    escolha OS por OS?
+> 4. Quando eu cadastrar uma **peça nova** pelo sistema, quais são os padrões de **origem** (ex.: 0 – Nacional),
+>    **tipo** (ex.: Mercadoria para revenda) e **unidade** que devo usar? O NCM eu pego de cada peça.
 >
 > Nada muda na parte fiscal: CFOP, natureza e impostos continuam vindo do cadastro dos produtos no Conta Azul.
 

@@ -45,6 +45,7 @@ exemplos/              modelos de CSV
 - [ ] Primeiro teste real com a conta de teste do app de desenvolvimento
 - [x] Leitura do PDF da OS gerado pelo HTS
 - [x] Envio de PDFs pelo painel, mapeamento de serviços e escolha do SKU das peças por OS
+- [x] Cadastro de produto novo: cria no Conta Azul (saldo 0) e na planilha de SKUs ([docs/PLANILHA.md](docs/PLANILHA.md))
 - [x] `.env` e dados fora da pasta do projeto (atualizar não apaga nada)
 - [ ] Leitura direta do HTS por API (opcional; depende do Lucas)
 - [ ] Marcar "NF emitida" automaticamente, consultando as notas pela venda na API

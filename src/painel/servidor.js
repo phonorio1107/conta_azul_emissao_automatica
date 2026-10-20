@@ -12,6 +12,9 @@ import {
 } from '../processamento.js';
 import { adicionarMapeamentos, chaveMapa, carregarMapeamento } from '../mapeamento.js';
 import { obterCatalogo, buscarNoCatalogo } from '../catalogo.js';
+import { ORIGENS, TIPOS, cadastrarProduto, preferencias, proximoSku } from '../produtoNovo.js';
+import { proximoSkuDaPlanilha, linhasPendentes, reenviarPendentes, planilhaConfigurada } from '../planilha.js';
+import { buscarNcm, listarUnidadesMedida } from '../contaazul/cliente.js';
 import { totalOs, tipoOs } from '../validacao.js';
 import { reais } from '../numeros.js';
 import { pagina, esc } from './html.js';
@@ -45,6 +48,7 @@ app.get('/', (req, res) => {
     .join('');
 
   const pendentesMapa = itensSemMapeamento().length;
+  const pendentesPlanilha = linhasPendentes().length;
   const unidades = Object.entries(UNIDADES)
     .map(([id, nome]) =>
       unidadeAutorizada(id)
@@ -76,12 +80,15 @@ app.get('/', (req, res) => {
     res,
     'Ordens de Serviço',
     `<div class="acoes">${unidades}</div>
+     ${pendentesPlanilha ? `<div class="aviso">${pendentesPlanilha} produto(s) criado(s) no Conta Azul ainda não foram para a planilha.
+        <form class="inline" method="post" action="/planilha/reenviar"><button class="secundario">Enviar para a planilha agora</button></form></div>` : ''}
      <div class="cartoes">${cartoes}</div>
      <div class="acoes">
        <label class="botao">Enviar PDFs das OS
          <input id="arquivos" type="file" accept=".pdf,.csv" multiple hidden onchange="enviarArquivos(this.files)">
        </label>
        <form class="inline" method="post" action="/importar"><button class="secundario">Importar da pasta "entrada"</button></form>
+       <a class="botao secundario" href="/produtos/novo?unidade=vinhedo">Cadastrar produto</a>
        ${pendentesMapa ? `<a class="botao secundario" href="/mapeamento">Mapear serviços (${pendentesMapa} pendente${pendentesMapa > 1 ? 's' : ''})</a>` : ''}
      </div>
      <script>
@@ -168,8 +175,9 @@ app.get('/os/:chave', async (req, res) => {
   const linhaResultados = (i) => {
     if (buscandoItem !== i || !termo.trim()) return '';
     if (avisoBusca) return `<tr><td colspan="6" class="problema">${esc(avisoBusca)}</td></tr>`;
+    const novo = `<a class="botao secundario" href="/produtos/novo?${new URLSearchParams({ unidade: os.unidade, os: os.chave, item: i, descricao: os.itens[i].codigoHts })}">Cadastrar produto novo</a>`;
     if (!resultados.length) {
-      return `<tr><td colspan="6">Nada encontrado para "${esc(termo)}". Tente outra palavra ou só parte do SKU.
+      return `<tr><td colspan="6">Nada encontrado para "${esc(termo)}". Tente outra palavra ou só parte do SKU. Se o item ainda não existe: ${novo}<br>
         Se o produto foi cadastrado agora no Conta Azul:
         <form class="inline" method="post" action="/mapeamento/atualizar-catalogo"><input type="hidden" name="voltar" value="${esc(`${rotaOs(os.chave)}?item=${i}&q=${encodeURIComponent(termo)}#item-${i}`)}"><button class="link">atualizar a lista do Conta Azul</button></form></td></tr>`;
     }
@@ -185,7 +193,7 @@ app.get('/os/:chave', async (req, res) => {
       )
       .join('');
     return `<tr><td colspan="6"><table class="resultados"><thead><tr><th>SKU</th><th>Produto no Conta Azul</th><th class="num">Saldo*</th><th></th></tr></thead>
-      <tbody>${opcoes}</tbody></table><small>* saldo na última atualização da lista.</small></td></tr>`;
+      <tbody>${opcoes}</tbody></table><small>* saldo na última atualização da lista.</small> Não está na lista? ${novo}</td></tr>`;
   };
 
   const itens = os.itens
@@ -414,6 +422,154 @@ app.post('/mapeamento/atualizar-catalogo', async (req, res) => {
 
 function nomeNoCatalogo(unidade, id) {
   return lerJson(`catalogo-${unidade}.json`, { itens: [] }).itens.find((c) => c.id === id)?.nome ?? '';
+}
+
+// ---- Cadastro de produto novo (Conta Azul + planilha) ----
+
+app.get('/produtos/novo', async (req, res) => {
+  const unidade = UNIDADES[req.query.unidade] ? req.query.unidade : 'vinhedo';
+  const prefs = preferencias();
+  let sku = '';
+  try {
+    sku = (await proximoSkuDaPlanilha()) || proximoSku((await obterCatalogo(unidade)).itens.map((i) => i.codigo));
+  } catch {
+    // sem sugestão: o usuário digita
+  }
+  await formularioProduto(res, unidade, {
+    os: req.query.os ?? '',
+    item: req.query.item ?? '',
+    sku,
+    descricao: String(req.query.descricao ?? '').toUpperCase(),
+    grandeza: 'UND',
+    ncmId: prefs.ncmId ?? '',
+    ncmTexto: prefs.ncmTexto ?? '',
+    unidadeId: prefs.unidadeId ?? '',
+    origem: prefs.origem ?? '',
+    tipo: prefs.tipo ?? '',
+  });
+});
+
+app.post('/produtos/novo', async (req, res) => {
+  const unidade = UNIDADES[req.body.unidade] ? req.body.unidade : 'vinhedo';
+  const d = { ...req.body };
+  try {
+    const { problemas, produto, erroPlanilha } = await cadastrarProduto(unidade, d);
+    if (problemas) return formularioProduto(res, unidade, d, problemas);
+    let aviso = `Produto ${produto.codigo} criado no Conta Azul${erroPlanilha ? '' : ' e na planilha'}.`;
+    if (erroPlanilha) aviso += `\nMas NÃO foi para a planilha: ${erroPlanilha}\nEle ficou guardado; use "Enviar para a planilha agora" na tela inicial.`;
+    if (d.os && d.item !== '') {
+      escolherProduto(d.os, Number(d.item), produto);
+      return voltar(res, `${rotaOs(d.os)}#item-${d.item}`, `${aviso}\nJá escolhido nesta OS.`);
+    }
+    voltar(res, '/', aviso);
+  } catch (erro) {
+    formularioProduto(res, unidade, d, [erro.message]);
+  }
+});
+
+app.get('/api/ncm', async (req, res) => {
+  try {
+    const lista = await buscarNcm(req.query.unidade || 'vinhedo', String(req.query.q ?? ''));
+    res.json(lista.map((n) => ({ id: n.id, texto: `${n.codigo} – ${n.descricao}` })));
+  } catch (erro) {
+    res.status(500).json({ erro: erro.message });
+  }
+});
+
+app.post('/planilha/reenviar', async (req, res) => {
+  const { enviadas, restantes } = await reenviarPendentes();
+  voltar(res, '/', `${enviadas} enviado(s) para a planilha.${restantes ? ` ${restantes} ainda com erro.` : ''}`);
+});
+
+async function formularioProduto(res, unidade, v, problemas = []) {
+  let unidades = [];
+  let erroUnidades = '';
+  if (!unidadeAutorizada(unidade)) erroUnidades = `Conecte ${UNIDADES[unidade]} ao Conta Azul antes de cadastrar produtos.`;
+  else {
+    try {
+      unidades = await listarUnidadesMedida(unidade);
+    } catch (erro) {
+      erroUnidades = `Não consegui consultar as unidades no Conta Azul: ${erro.message}`;
+    }
+  }
+  const valor = (campo) => esc(v[campo] ?? '');
+  const campo = (nome, rotulo, extra = '') =>
+    `<label>${rotulo}<br><input name="${nome}" value="${valor(nome)}" ${extra}></label>`;
+  const opcoes = (mapa, atual) =>
+    `<option value="">— escolher —</option>` +
+    Object.entries(mapa).map(([k, t]) => `<option value="${k}"${k === atual ? ' selected' : ''}>${esc(t)}</option>`).join('');
+  const unidadePadrao = v.unidadeId || unidades.find((u) => /^(un|und)$/i.test(u.abreviacao ?? ''))?.id;
+  const opcoesUnidade =
+    '<option value="">— escolher —</option>' +
+    unidades
+      .map((u) => `<option value="${u.id}"${String(u.id) === String(unidadePadrao) ? ' selected' : ''}>${esc(u.abreviacao)} – ${esc(u.descricao)}</option>`)
+      .join('');
+
+  responder(
+    res,
+    'Cadastrar produto',
+    `<p><a href="${v.os ? rotaOs(v.os) : '/'}">← voltar</a></p>
+     <h1>Cadastrar produto · ${esc(UNIDADES[unidade])}</h1>
+     <p>Cria o produto no Conta Azul (com saldo 0) e adiciona a linha na planilha de SKUs${planilhaConfigurada() ? '' : ' <b>(planilha ainda não configurada: o produto fica guardado para enviar depois)</b>'}.</p>
+     ${[erroUnidades, ...problemas].filter(Boolean).length ? `<ul class="problemas">${[erroUnidades, ...problemas].filter(Boolean).map((p) => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}
+     <form method="post" action="/produtos/novo" class="formulario">
+       <input type="hidden" name="unidade" value="${esc(unidade)}">
+       <input type="hidden" name="os" value="${valor('os')}">
+       <input type="hidden" name="item" value="${valor('item')}">
+       <fieldset><legend>Planilha</legend>
+         ${campo('sku', 'SKU', 'maxlength="20" required')}
+         ${campo('endereco', 'Endereço', 'placeholder="ex.: 7-6"')}
+         ${campo('codFabricante', 'Cód. Fabricante', 'required placeholder="ex.: 8100 5W40"')}
+         ${campo('marca', 'Marca', 'required')}
+         ${campo('descricao', 'Descrição', 'required placeholder="ex.: OLEO MOTOR"')}
+         ${campo('montadora', 'Montadora')}
+         ${campo('modelo', 'Modelo')}
+         ${campo('grandeza', 'Grandeza', 'size="6"')}
+         ${campo('equivalencia', 'Equivalência')}
+         <p>Nome completo: <b id="nome"></b></p>
+       </fieldset>
+       <fieldset><legend>Conta Azul (fiscal)</legend>
+         <label>NCM<br>
+           <input id="ncmBusca" placeholder="código ou nome, ex.: 2710 ou filtro" size="30">
+           <button type="button" class="secundario" onclick="buscarNcm()">Buscar NCM</button><br>
+           <select name="ncmId" id="ncmId" required style="max-width:100%">
+             ${v.ncmId ? `<option value="${valor('ncmId')}" selected>${valor('ncmTexto')}</option>` : '<option value="">— busque acima —</option>'}
+           </select>
+           <input type="hidden" name="ncmTexto" id="ncmTexto" value="${valor('ncmTexto')}">
+         </label>
+         <label>Unidade<br><select name="unidadeId" required>${opcoesUnidade}</select></label>
+         <label>Origem<br><select name="origem" required>${opcoes(ORIGENS, v.origem)}</select></label>
+         <label>Tipo<br><select name="tipo" required>${opcoes(TIPOS, v.tipo)}</select></label>
+         ${campo('valorVenda', 'Valor de venda (opcional)', 'size="8" placeholder="0,00"')}
+         ${campo('custo', 'Custo (opcional)', 'size="8" placeholder="0,00"')}
+       </fieldset>
+       <div class="acoes"><button>Criar no Conta Azul e na planilha</button></div>
+     </form>
+     <script>
+       const f = document.querySelector('form.formulario');
+       function atualizarNome() {
+         const t = (n) => (f[n].value || '').trim().toUpperCase();
+         const base = [t('descricao'), t('marca')].filter(Boolean).join(' ');
+         document.getElementById('nome').textContent = t('codFabricante') ? base + ' - ' + t('codFabricante') : base;
+       }
+       f.addEventListener('input', atualizarNome); atualizarNome();
+       // Aceita vírgula nos valores (0,00).
+       f.addEventListener('submit', () => { for (const n of ['valorVenda', 'custo']) f[n].value = f[n].value.replace(/\\./g, '').replace(',', '.'); });
+       async function buscarNcm() {
+         const q = document.getElementById('ncmBusca').value;
+         const r = await fetch('/api/ncm?unidade=${esc(unidade)}&q=' + encodeURIComponent(q));
+         const lista = await r.json();
+         const sel = document.getElementById('ncmId');
+         if (!r.ok) { alert(lista.erro); return; }
+         sel.innerHTML = lista.length ? '' : '<option value="">nada encontrado</option>';
+         for (const n of lista) { const o = document.createElement('option'); o.value = n.id; o.textContent = n.texto; sel.appendChild(o); }
+         document.getElementById('ncmTexto').value = sel.selectedOptions[0]?.textContent || '';
+       }
+       document.getElementById('ncmId').addEventListener('change', (e) => {
+         document.getElementById('ncmTexto').value = e.target.selectedOptions[0]?.textContent || '';
+       });
+     </script>`,
+  );
 }
 
 app.get('/autorizar/:unidade', (req, res) => {

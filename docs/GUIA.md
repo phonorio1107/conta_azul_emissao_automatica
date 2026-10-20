@@ -100,6 +100,10 @@ O PDF traz a peça com nome genérico ("Filtro de oleo"), mas no Conta Azul cada
    - **Usar**: vale só para esta OS;
    - **Usar sempre**: vale também para as próximas OS com essa mesma descrição (bom para peças que são sempre o mesmo SKU, como o óleo da casa).
 4. Errou? Clique em **trocar** e busque de novo.
+5. A peça ainda não existe no Conta Azul? Clique em **Cadastrar produto novo**: preencha os campos da planilha
+   (SKU já vem sugerido, Endereço, Cód. Fabricante, Marca, Descrição...) e os dados fiscais (NCM, unidade, origem, tipo).
+   O produto é criado no Conta Azul com **saldo 0**, entra na sua planilha e já fica escolhido na OS.
+   Para a planilha receber a linha automaticamente, faça uma vez o [passo a passo da planilha](PLANILHA.md).
 
 **Serviços – mapeados uma vez só**
 

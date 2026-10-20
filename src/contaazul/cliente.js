@@ -113,3 +113,22 @@ export async function proximoNumeroVenda(unidade) {
 export async function criarVenda(unidade, venda) {
   return chamar(unidade, 'POST', CAMINHOS.criarVenda, { corpo: venda });
 }
+
+// ---- Cadastro de produto ----
+
+export async function buscarNcm(unidade, termo) {
+  return extrairLista(await chamar(unidade, 'GET', CAMINHOS.ncm, { consulta: { busca_textual: termo, pagina: 1, tamanho_pagina: 20 } }));
+}
+
+export async function listarUnidadesMedida(unidade) {
+  return listarTudo(unidade, CAMINHOS.unidadesMedida);
+}
+
+export async function produtoPorSku(unidade, sku) {
+  const lista = extrairLista(await chamar(unidade, 'GET', CAMINHOS.produtos, { consulta: { sku, pagina: 1, tamanho_pagina: 10 } }));
+  return lista.find((p) => String(p.codigo ?? p.codigo_sku ?? '').toUpperCase() === sku.toUpperCase()) ?? null;
+}
+
+export async function criarProduto(unidade, produto) {
+  return chamar(unidade, 'POST', CAMINHOS.produtos, { corpo: produto });
+}
